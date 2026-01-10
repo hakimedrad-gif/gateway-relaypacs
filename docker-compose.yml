@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - DEBUG=true
+      - S3_ENDPOINT=http://minio:9000
+      - ORTHANC_URL=http://orthanc:8042
+    depends_on:
+      - minio
+      - orthanc
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # MinIO (S3-compatible storage)
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Orthanc PACS
+  orthanc:
+    image: jodogne/orthanc-plugins:latest
+    ports:
+      - "8042:8042"
+      - "4242:4242"
+    environment:
+      - ORTHANC__NAME=RelayPACS-Orthanc
+      - ORTHANC__AUTHENTICATION_ENABLED=true
+      - ORTHANC__REGISTERED_USERS={"orthanc":"orthanc"}
+      - ORTHANC__DICOM_WEB_ENABLED=true
+    volumes:
+      - orthanc_data:/var/lib/orthanc/db
+
+volumes:
+  minio_data:
+  orthanc_data:
