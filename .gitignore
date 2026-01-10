@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+.pytest_cache/
+*.swp
+
+# Node / React
+node_modules/
+dist/
+.venv/
+.DS_Store
+*.log
+
+# Project specific
+.vscode/
+.idea/
+backend/storage_temp/
