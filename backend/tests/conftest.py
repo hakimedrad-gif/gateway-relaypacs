@@ -30,10 +30,27 @@ def clean_storage():
 
 @pytest.fixture
 def clean_upload_manager():
-    """Reset the singleton upload manager"""
+    """Reset the singleton upload manager and redirect persistence"""
+    test_persistence = Path("test_data_sessions")
+    test_persistence.mkdir(parents=True, exist_ok=True)
+
+    # Store originals
+    old_dir = upload_manager.persistence_dir
+    old_sessions = upload_manager._sessions
+
+    # Patch
+    upload_manager.persistence_dir = test_persistence
     upload_manager._sessions = {}
+
     yield
-    upload_manager._sessions = {}
+
+    # Cleanup
+    if test_persistence.exists():
+        shutil.rmtree(test_persistence)
+
+    # Restore
+    upload_manager.persistence_dir = old_dir
+    upload_manager._sessions = old_sessions
 
 
 @pytest.fixture(autouse=True)
@@ -57,7 +74,7 @@ def disable_rate_limiting():
 @pytest.fixture
 def auth_headers(client):
     """Get valid auth headers for tests"""
-    response = client.post("/auth/login", json={"username": "admin", "password": "password"})
+    response = client.post("/auth/login", json={"username": "admin", "password": "adminuser@123"})
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 

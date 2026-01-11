@@ -5,7 +5,7 @@ def test_health_check(client):
 
 
 def test_login_success(client):
-    response = client.post("/auth/login", json={"username": "admin", "password": "password"})
+    response = client.post("/auth/login", json={"username": "admin", "password": "adminuser@123"})
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
