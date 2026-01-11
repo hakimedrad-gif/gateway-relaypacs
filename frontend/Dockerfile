@@ -3,6 +3,9 @@ FROM node:20-alpine as build
 
 WORKDIR /app
 
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # Install dependencies (cache mount to speed up)
 COPY package.json package-lock.json ./
 RUN npm ci

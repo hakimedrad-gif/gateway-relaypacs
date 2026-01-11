@@ -18,7 +18,7 @@ Processing:-,Validate DICOM,Chunking & resumable uploads
 Forwarding:-Send to cloud PACS via:
 	DICOMweb (STOW-RS) preferred
 	OR traditional C-STORE via gateway
-	
+
 #Security & Compliance (MVP-safe)
 Minimum: HTTPS everywhere,Auth required before upload,Short-lived upload tokens,No persistent storage of images on frontend
 Optional:Client-side AES encryption
@@ -36,7 +36,7 @@ Offline Flow (Huge Win)
 	Upload resumes when network returns
 	User gets confirmation
 	Most PACS tools do not do this well.
-	
+
 # Smart MVP Scope (Don’t Overbuild)
 Phase 1 (2–3 weeks)
 
@@ -60,10 +60,9 @@ Backend
 PACS Integration
 	DICOMweb STOW-RS
 	Orthanc REST API fallbac
-	
+
 #Differentiation Ideas (Optional but Powerful)
 	QR code that encodes PACS endpoint + token
 	“Upload-only” mode (no PHI visible after confirmation)
 	Automatic study completeness checks
 	Bandwidth-aware chunk sizing
-

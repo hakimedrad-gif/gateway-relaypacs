@@ -211,4 +211,3 @@ Phase 2:
 - Supported PACS vendors at launch
 - JPEG → SC DICOM default behavior
 - Max upload size limits
-

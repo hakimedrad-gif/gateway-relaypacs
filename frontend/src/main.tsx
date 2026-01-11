@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { RouterProvider, createBrowserRouter } from 'react-router-dom';
@@ -8,7 +9,14 @@ import { UploadProgress } from './pages/UploadProgress';
 import './index.css';
 
 // Placeholder for completion
-const Completion = () => <div className="p-4 text-center text-green-400"><h2>Success! Upload Complete.</h2><a href="/" className="underline text-white block mt-4">Upload Another</a></div>;
+const Completion = () => (
+  <div className="p-4 text-center text-green-400">
+    <h2>Success! Upload Complete.</h2>
+    <a href="/" className="underline text-white block mt-4">
+      Upload Another
+    </a>
+  </div>
+);
 
 const router = createBrowserRouter([
   {
@@ -38,5 +46,5 @@ const router = createBrowserRouter([
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <RouterProvider router={router} />
-  </React.StrictMode>
+  </React.StrictMode>,
 );

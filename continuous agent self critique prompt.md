@@ -198,4 +198,3 @@ If you ever feel “this is good enough,”
 you must immediately enter Critic Mode.
 
 ---
-

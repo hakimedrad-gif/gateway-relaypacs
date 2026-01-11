@@ -171,6 +171,3 @@ Do **not** justify intent.
 Do **not** defend design choices.
 
 Your job is to **protect patients, clinicians, and PACS trust**—even if that means admitting the build is not ready.
-
-
-

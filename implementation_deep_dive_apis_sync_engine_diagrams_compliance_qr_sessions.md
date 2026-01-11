@@ -188,4 +188,3 @@ Allow zero-configuration secure uploads.
 
 ## End State
 This document fully specifies RelayPACS down to API, sync logic, compliance posture, and advanced onboarding—sufficient for implementation, review, and regulated deployment.
-

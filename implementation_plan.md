@@ -10,7 +10,7 @@
 - **PACS-Native Integration**: Standards-compliant DICOMweb (STOW-RS) forwarding
 - **Minimal Infrastructure**: Stateless design with no long-term PHI storage
 
-**Target Timeline**: 3 weeks (3 one-week sprints)  
+**Target Timeline**: 3 weeks (3 one-week sprints)
 **Target Deployment**: Pilot-ready MVP for clinical validation
 
 ---
@@ -26,19 +26,19 @@ graph TB
         SW[Service Worker]
         IDB[(IndexedDB)]
     end
-    
+
     subgraph "Backend Layer"
         API[Upload API<br/>FastAPI]
         DICOM[DICOM Processor<br/>pydicom]
         STORAGE[(S3-Compatible<br/>Temp Storage)]
     end
-    
+
     subgraph "PACS Layer"
         STOW[DICOMweb<br/>STOW-RS]
         ORTHANC[Orthanc<br/>Fallback]
         PACS[(Cloud PACS)]
     end
-    
+
     PWA --> SW
     SW --> IDB
     PWA --> API
@@ -198,8 +198,8 @@ Monitoring: Structured JSON logging
 
 ## 7. Deployment Architecture
 
-**Development**: Docker Compose (frontend, backend, MinIO, Orthanc)  
-**Staging**: Vercel + Cloud Run + GCS  
+**Development**: Docker Compose (frontend, backend, MinIO, Orthanc)
+**Staging**: Vercel + Cloud Run + GCS
 **Production**: CDN + Auto-scaling containers + S3
 
 ---

@@ -1,0 +1,34 @@
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 4 modules transformed.
+✗ Build failed in 239ms
+error during build:
+[vite-plugin-pwa:build] [plugin vite-plugin-pwa:build] src/index.css: There was an error during the build:
+  Failed to load PostCSS config (searchPath: /home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend): [ReferenceError] module is not defined in ES module scope
+This file is being treated as an ES module because it has a '.js' file extension and '/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/package.json' contains "type": "module". To treat it as a CommonJS script, rename it to use the '.cjs' file extension.
+ReferenceError: module is not defined in ES module scope
+This file is being treated as an ES module because it has a '.js' file extension and '/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/package.json' contains "type": "module". To treat it as a CommonJS script, rename it to use the '.cjs' file extension.
+    at file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/postcss.config.js?t=1768091789651:1:1
+    at ModuleJob.run (node:internal/modules/esm/module_job:413:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:660:26)
+    at async req$3 (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/dist/node/chunks/config.js:7579:12)
+    at async Object.search (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/dist/node/chunks/config.js:7396:24)
+Additionally, handling the error in the 'buildEnd' hook caused the following error:
+  Failed to load PostCSS config (searchPath: /home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend): [ReferenceError] module is not defined in ES module scope
+This file is being treated as an ES module because it has a '.js' file extension and '/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/package.json' contains "type": "module". To treat it as a CommonJS script, rename it to use the '.cjs' file extension.
+ReferenceError: module is not defined in ES module scope
+This file is being treated as an ES module because it has a '.js' file extension and '/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/package.json' contains "type": "module". To treat it as a CommonJS script, rename it to use the '.cjs' file extension.
+    at file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/postcss.config.js?t=1768091789651:1:1
+    at ModuleJob.run (node:internal/modules/esm/module_job:413:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:660:26)
+    at async req$3 (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/dist/node/chunks/config.js:7579:12)
+    at async Object.search (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/dist/node/chunks/config.js:7396:24)
+file: /home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/index.css
+    at getRollupError (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/rollup/dist/es/shared/parseAst.js:401:41)
+    at file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/rollup/dist/es/shared/node-entry.js:23467:39
+    at async catchUnfinishedHookActions (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/rollup/dist/es/shared/node-entry.js:22925:16)
+    at async rollupInternal (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/rollup/dist/es/shared/node-entry.js:23450:5)
+    at async buildEnvironment (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/dist/node/chunks/config.js:33541:12)
+    at async Object.build (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/dist/node/chunks/config.js:33900:19)
+    at async Object.buildApp (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/dist/node/chunks/config.js:33897:153)
+    at async CAC.<anonymous> (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/dist/node/cli.js:629:3)

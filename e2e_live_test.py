@@ -28,7 +28,7 @@ def test_live_workflow():
     if resp.status_code != 200:
         print(f"Login failed: {resp.text}")
         sys.exit(1)
-        
+
     token = resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     print(f"   Success! Token: {token[:10]}...")
@@ -38,7 +38,7 @@ def test_live_workflow():
     with open(FILE_PATH, "rb") as f:
         content = f.read()
         size = len(content)
-        
+
     payload = {
         "study_metadata": {
             "patient_name": "E2E TEST PATIENT",
@@ -48,12 +48,12 @@ def test_live_workflow():
         "total_files": 1,
         "total_size_bytes": size
     }
-    
+
     resp = requests.post(f"{BASE_URL}/upload/init", json=payload, headers=headers)
     if resp.status_code != 200:
         print(f"Init failed: {resp.text}")
         sys.exit(1)
-        
+
     data = resp.json()
     upload_id = data["upload_id"]
     upload_token = data["upload_token"]
@@ -70,7 +70,7 @@ def test_live_workflow():
         data=content, # Raw binary
         headers=upload_headers
     )
-    
+
     if resp.status_code != 200:
         print(f"Chunk upload failed: {resp.text}")
         sys.exit(1)
@@ -82,15 +82,15 @@ def test_live_workflow():
         f"{BASE_URL}/upload/{upload_id}/complete",
         headers=upload_headers
     )
-    
+
     result = resp.json()
     print(f"   Response: {result}")
-    
+
     # Assertions
     if resp.status_code != 200:
         print("   FAILED: Status code not 200")
         sys.exit(1)
-        
+
     if result["status"] == "success":
         print("   ✅ SUCCESS: Upload completed and processed.")
     elif result["status"] == "partial_success":

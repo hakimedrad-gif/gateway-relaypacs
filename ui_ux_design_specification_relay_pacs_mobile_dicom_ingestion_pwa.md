@@ -269,4 +269,3 @@ This flow must complete in under 60 seconds for small studies.
 ## 16. Conclusion
 
 This UI/UX specification prioritizes reliability, clarity, and speed in clinical contexts. By aggressively minimizing cognitive load and treating offline operation as a core feature, RelayPACS delivers a user experience unmatched by traditional PACS ingestion tools.
-

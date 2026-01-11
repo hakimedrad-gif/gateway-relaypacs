@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
+
 from app.auth.utils import create_access_token
 
 router = APIRouter()
@@ -16,7 +17,7 @@ class TokenResponse(BaseModel):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(credentials: LoginRequest):
+async def login(credentials: LoginRequest) -> TokenResponse | dict[str, str]:
     """
     Mock login endpoint to issue access tokens.
     In real world, verify credentials against database.
@@ -28,6 +29,6 @@ async def login(credentials: LoginRequest):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     access_token = create_access_token(data={"sub": credentials.username})
     return {"access_token": access_token, "token_type": "bearer"}

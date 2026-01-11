@@ -155,7 +155,7 @@ Bundle Size:
   Initial JavaScript: <200KB gzipped
   Vendor Chunks: <500KB gzipped
   CSS: <50KB gzipped
-  
+
 Loading Performance:
   First Contentful Paint: <1.5s
   Largest Contentful Paint: <2.5s
@@ -634,5 +634,5 @@ This comprehensive code quality framework ensures RelayPACS meets the highest st
 
 **Implementation Timeline:**
 - **Sprint 0**: Set up all quality tooling and baselines
-- **Sprint 1-3**: Enforce quality gates and track metrics  
+- **Sprint 1-3**: Enforce quality gates and track metrics
 - **Post-MVP**: Continuous improvement and optimization
