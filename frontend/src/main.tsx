@@ -29,7 +29,16 @@ const Completion = () => (
   </div>
 );
 
+import { useAuth } from './hooks/useAuth';
+import { Login } from './pages/Login';
+
 // AC-18: Route Guards for Workflow Integrity
+const AuthGuard = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+};
+
 const MetadataGuard = () => {
   const { studyId } = useParams();
   const study = useLiveQuery(() => db.studies.get(Number(studyId)), [studyId]);
@@ -50,8 +59,16 @@ const ProgressGuard = () => {
 
 const router = createBrowserRouter([
   {
+    path: '/login',
+    element: <Login />,
+  },
+  {
     path: '/',
-    element: <Layout />,
+    element: (
+      <AuthGuard>
+        <Layout />
+      </AuthGuard>
+    ),
     children: [
       {
         index: true,
