@@ -37,6 +37,15 @@ def mock_pacs_forwarding(monkeypatch):
     from app.pacs.service import pacs_service
     monkeypatch.setattr(pacs_service, "forward_files", lambda x: "MOCK-RECEIPT-OK")
 
+@pytest.fixture(autouse=True)
+def disable_rate_limiting():
+    """Disable strict rate limiting for tests"""
+    if hasattr(app.state, "limiter"):
+        app.state.limiter.enabled = False
+    yield
+    if hasattr(app.state, "limiter"):
+        app.state.limiter.enabled = True
+
 @pytest.fixture
 def auth_headers(client):
     """Get valid auth headers for tests"""

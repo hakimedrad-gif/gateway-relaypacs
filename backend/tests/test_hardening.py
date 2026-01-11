@@ -12,6 +12,7 @@ async def test_cleanup_on_completion(monkeypatch):
     from app.upload.router import complete_upload
     from app.upload.service import upload_manager
     from app.storage.service import storage_service
+    from unittest.mock import MagicMock
     
     upload_id = uuid4()
     # Mock session
@@ -39,15 +40,18 @@ async def test_cleanup_on_completion(monkeypatch):
     # We need to add at least one file to session to avoid "incomplete" error
     session.register_file_chunk("file1", 0, 100)
 
-    await complete_upload(upload_id, token)
+    # Pass mock request to satisfy signature
+    mock_request = MagicMock()
+    await complete_upload(mock_request, upload_id, token)
     
     assert cleanup_called is True
     assert str(upload_id) not in upload_manager._sessions
 
 @pytest.mark.asyncio
-async def test_session_expiration_cleanup():
+async def test_session_expiration_cleanup(tmp_path):
     """Test that expired sessions are cleaned up by UploadManager"""
-    manager = UploadManager()
+    # Use tmp_path for persistence to avoid loading existing sessions
+    manager = UploadManager(persistence_dir=tmp_path)
     storage = LocalStorageService()
     
     metadata = StudyMetadata(patient_name="Test", study_date="20230101", modality="CT")

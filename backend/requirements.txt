@@ -6,6 +6,7 @@ python-multipart==0.0.21
 pydantic==2.12.5
 pydantic-settings==2.12.0
 python-dotenv==1.2.1
+slowapi==0.1.9
 
 # DICOM Processing
 pydicom==3.0.1

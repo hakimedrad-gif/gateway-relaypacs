@@ -39,6 +39,21 @@ export interface ChunkUploadResponse {
   received_bytes: number;
 }
 
+export interface UploadStatusResponse {
+  upload_id: string;
+  progress_percent: number;
+  uploaded_bytes: number;
+  total_bytes: number;
+  state: string;
+  chunks_received: number;
+  chunks_total: number;
+  pacs_status: string;
+  files: Record<string, {
+    received_chunks: number[];
+    complete: boolean;
+  }>;
+}
+
 export const uploadApi = {
   login: async (username: string, password: string): Promise<{ access_token: string }> => {
     const response = await api.post('/auth/login', { username, password });
@@ -54,6 +69,13 @@ export const uploadApi = {
       study_metadata: metadata,
       total_files: totalFiles,
       total_size_bytes: totalSize,
+    });
+    return response.data;
+  },
+
+  getUploadStatus: async (uploadId: string, token: string): Promise<UploadStatusResponse> => {
+    const response = await api.get(`/upload/${uploadId}/status`, {
+      headers: { 'Authorization': `Bearer ${token}` }
     });
     return response.data;
   },
