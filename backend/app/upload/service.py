@@ -1,14 +1,21 @@
-from typing import Dict
+import json
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
 from uuid import uuid4
-from datetime import datetime, UTC, timedelta
-from app.models.upload import StudyMetadata, UploadInitResponse, ChunkUploadResponse
+
 from app.auth.utils import create_upload_token
 from app.config import get_settings
+from app.models.upload import StudyMetadata, UploadInitResponse
+from app.storage.service import BaseStorageService
 
 settings = get_settings()
 
+
 class UploadSession:
-    def __init__(self, upload_id: str, total_files: int, total_size_bytes: int, metadata: StudyMetadata):
+    def __init__(
+        self, upload_id: str, total_files: int, total_size_bytes: int, metadata: StudyMetadata
+    ) -> None:
         self.upload_id = upload_id
         self.metadata = metadata
         self.total_files = total_files
@@ -16,25 +23,22 @@ class UploadSession:
         self.uploaded_bytes = 0
         self.created_at = datetime.now(UTC)
         self.expires_at = self.created_at + timedelta(minutes=settings.upload_token_expire_minutes)
-        self.files: Dict[str, Dict] = {}  # Track chunks per file
-    
-    def register_file_chunk(self, file_id: str, chunk_index: int, chunk_size: int):
+        self.files: dict[str, dict[str, Any]] = {}  # Track chunks per file
+
+    def register_file_chunk(self, file_id: str, chunk_index: int, chunk_size: int) -> None:
         if file_id not in self.files:
             self.files[file_id] = {"chunks": set(), "complete": False}
-        
+
         if chunk_index not in self.files[file_id]["chunks"]:
             self.files[file_id]["chunks"].add(chunk_index)
             self.uploaded_bytes += chunk_size
 
 
-import json
-from pathlib import Path
-
 class UploadManager:
     """Session manager with JSON-based persistence"""
-    
-    def __init__(self, persistence_dir: Path | str = "data/sessions"):
-        self._sessions: Dict[str, UploadSession] = {}
+
+    def __init__(self, persistence_dir: Path | str = "data/sessions") -> None:
+        self._sessions: dict[str, UploadSession] = {}
         self.persistence_dir = Path(persistence_dir)
         self.persistence_dir.mkdir(parents=True, exist_ok=True)
         self._load_sessions()
@@ -42,7 +46,7 @@ class UploadManager:
     def _get_session_path(self, upload_id: str) -> Path:
         return self.persistence_dir / f"{upload_id}.json"
 
-    def _save_session(self, session: UploadSession):
+    def _save_session(self, session: UploadSession) -> None:
         """Persist session state to disk"""
         data = {
             "upload_id": session.upload_id,
@@ -53,66 +57,65 @@ class UploadManager:
             "created_at": session.created_at.isoformat(),
             "expires_at": session.expires_at.isoformat(),
             "files": {
-                fid: {
-                    "chunks": list(info["chunks"]), 
-                    "complete": info["complete"]
-                } for fid, info in session.files.items()
-            }
+                fid: {"chunks": list(info["chunks"]), "complete": info["complete"]}
+                for fid, info in session.files.items()
+            },
         }
         with open(self._get_session_path(session.upload_id), "w") as f:
             json.dump(data, f)
 
-    def _load_sessions(self):
+    def _load_sessions(self) -> None:
         """Load all valid sessions from disk"""
         for session_file in self.persistence_dir.glob("*.json"):
             try:
-                with open(session_file, "r") as f:
+                with open(session_file) as f:
                     data = json.load(f)
-                
+
                 # Reconstruct session
                 meta = StudyMetadata(**data["metadata"])
-                session = UploadSession(data["upload_id"], data["total_files"], data["total_size_bytes"], meta)
+                session = UploadSession(
+                    data["upload_id"], data["total_files"], data["total_size_bytes"], meta
+                )
                 session.uploaded_bytes = data["uploaded_bytes"]
                 session.created_at = datetime.fromisoformat(data["created_at"])
                 session.expires_at = datetime.fromisoformat(data["expires_at"])
-                
+
                 # Reconstruct files dict
                 # Convert list back to set
                 files_data = data.get("files", {})
                 for fid, info in files_data.items():
                     session.files[fid] = {
                         "chunks": set(info["chunks"]),
-                        "complete": info["complete"]
+                        "complete": info["complete"],
                     }
-                
+
                 # Only add if not expired (or let cleanup handle it)
                 self._sessions[session.upload_id] = session
             except Exception as e:
                 print(f"Failed to load session {session_file}: {e}")
 
-    async def create_session(self, metadata: StudyMetadata, total_files: int, total_size: int) -> UploadInitResponse:
-        upload_id = str(uuid4())
-        session = UploadSession(upload_id, total_files, total_size, metadata)
-        self._sessions[upload_id] = session
+    async def create_session(
+        self, metadata: StudyMetadata, total_files: int, total_size: int
+    ) -> UploadInitResponse:
+        upload_id = uuid4()
+        session = UploadSession(str(upload_id), total_files, total_size, metadata)
+        self._sessions[str(upload_id)] = session
         self._save_session(session)
-        
-        token = create_upload_token(upload_id)
-        
+
+        token = create_upload_token(str(upload_id))
+
         return UploadInitResponse(
             upload_id=upload_id,
             upload_token=token,
             chunk_size=settings.chunk_size_mb * 1024 * 1024,
-            expires_at=session.expires_at
+            expires_at=session.expires_at,
         )
 
-    async def cleanup_expired_sessions(self, storage_service):
+    async def cleanup_expired_sessions(self, storage_service: BaseStorageService) -> int:
         """Find and remove expired sessions and their files"""
         now = datetime.now(UTC)
-        expired_ids = [
-            uid for uid, session in self._sessions.items() 
-            if session.expires_at < now
-        ]
-        
+        expired_ids = [uid for uid, session in self._sessions.items() if session.expires_at < now]
+
         for uid in expired_ids:
             # We need to await cleanup if it's async
             await storage_service.cleanup_upload(uid)
@@ -121,20 +124,20 @@ class UploadManager:
             path = self._get_session_path(uid)
             if path.exists():
                 path.unlink()
-        
+
         return len(expired_ids)
 
     def get_session(self, upload_id: str) -> UploadSession | None:
         return self._sessions.get(str(upload_id))
 
-    def remove_session(self, upload_id: str):
+    def remove_session(self, upload_id: str) -> None:
         if str(upload_id) in self._sessions:
             del self._sessions[str(upload_id)]
             path = self._get_session_path(upload_id)
             if path.exists():
                 path.unlink()
-    
-    def update_session(self, session: UploadSession):
+
+    def update_session(self, session: UploadSession) -> None:
         """Explicitly trigger a save"""
         self._save_session(session)
 

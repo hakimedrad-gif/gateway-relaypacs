@@ -50,7 +50,7 @@ export class RelayPACSDB extends Dexie {
     this.version(1).stores({
       studies: '++id, status, createdAt',
       files: '++id, studyId, fileName',
-      chunks: '++id, fileId, [fileId+index]'
+      chunks: '++id, fileId, [fileId+index]',
     });
   }
 }

@@ -48,10 +48,13 @@ export interface UploadStatusResponse {
   chunks_received: number;
   chunks_total: number;
   pacs_status: string;
-  files: Record<string, {
-    received_chunks: number[];
-    complete: boolean;
-  }>;
+  files: Record<
+    string,
+    {
+      received_chunks: number[];
+      complete: boolean;
+    }
+  >;
 }
 
 export const uploadApi = {
@@ -61,9 +64,9 @@ export const uploadApi = {
   },
 
   initUpload: async (
-    metadata: StudyMetadata, 
-    totalFiles: number, 
-    totalSize: number
+    metadata: StudyMetadata,
+    totalFiles: number,
+    totalSize: number,
   ): Promise<UploadInitResponse> => {
     const response = await api.post('/upload/init', {
       study_metadata: metadata,
@@ -75,7 +78,7 @@ export const uploadApi = {
 
   getUploadStatus: async (uploadId: string, token: string): Promise<UploadStatusResponse> => {
     const response = await api.get(`/upload/${uploadId}/status`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
     });
     return response.data;
   },
@@ -86,28 +89,24 @@ export const uploadApi = {
     chunkIndex: number,
     blob: Blob,
     token: string,
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
   ): Promise<ChunkUploadResponse> => {
     // Note: We use a separate axios instance or config for chunks to inject the SCOPED token
-    const response = await axios.put(
-      `${API_URL}/upload/${uploadId}/chunk`,
-      blob,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/octet-stream',
-        },
-        params: {
-          chunk_index: chunkIndex,
-          file_id: fileId,
-        },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total && onProgress) {
-            onProgress((progressEvent.loaded / progressEvent.total) * 100);
-          }
-        },
-      }
-    );
+    const response = await axios.put(`${API_URL}/upload/${uploadId}/chunk`, blob, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/octet-stream',
+      },
+      params: {
+        chunk_index: chunkIndex,
+        file_id: fileId,
+      },
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total && onProgress) {
+          onProgress((progressEvent.loaded / progressEvent.total) * 100);
+        }
+      },
+    });
     return response.data;
   },
 
@@ -117,10 +116,10 @@ export const uploadApi = {
       {},
       {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
-      }
+      },
     );
     return response.data;
-  }
+  },
 };

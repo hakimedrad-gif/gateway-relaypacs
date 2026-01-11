@@ -266,4 +266,3 @@ RelayPACS is positioned as a **non-diagnostic, non-storage** component.
 ## 16. Conclusion
 
 This technical design specifies a robust, standards-compliant, and pragmatically scoped ingestion system optimized for real-world clinical environments, particularly those with unreliable connectivity and limited infrastructure.
-

@@ -89,4 +89,3 @@ Radiology studies captured outside the core hospital network (remote clinics, mo
 
 ## Strategic Fit
 RelayPACS acts as the missing ingestion layer between decentralized imaging capture and centralized PACS infrastructure, enabling scale without disruption.
-

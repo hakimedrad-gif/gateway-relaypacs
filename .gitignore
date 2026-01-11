@@ -22,3 +22,8 @@ temp_uploads/
 data/
 *.dcm
 test_temp_uploads/
+
+# Coverage
+.coverage
+coverage/
+frontend/coverage/

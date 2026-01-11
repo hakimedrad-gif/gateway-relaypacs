@@ -156,4 +156,3 @@ frontend/
 
 ## End State
 With this document, RelayPACS is now hardened from a security, interoperability, and implementation standpoint—ready for real-world pilot deployments.
-

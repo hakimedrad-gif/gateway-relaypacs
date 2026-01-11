@@ -7,14 +7,11 @@ export const UploadProgress: React.FC = () => {
   const { uploadId } = useParams<{ uploadId: string }>();
 
   // Live query for the study status
-  const study = useLiveQuery(
-    () => db.studies.get(Number(uploadId)),
-    [uploadId]
-  );
-  
+  const study = useLiveQuery(() => db.studies.get(Number(uploadId)), [uploadId]);
+
   const files = useLiveQuery(
     () => db.files.where('studyId').equals(Number(uploadId)).toArray(),
-    [uploadId]
+    [uploadId],
   );
 
   // Calculate progress efficiently without side-effects
@@ -24,7 +21,7 @@ export const UploadProgress: React.FC = () => {
     let totalChunksExpected = 0;
     const CHUNK_SIZE = 1024 * 1024; // 1MB match backend
 
-    files.forEach(f => {
+    files.forEach((f) => {
       const fileChunks = Math.ceil(f.size / CHUNK_SIZE);
       totalChunksExpected += fileChunks;
       totalChunksUploaded += f.uploadedChunks.length;
@@ -46,12 +43,12 @@ export const UploadProgress: React.FC = () => {
         </p>
 
         <div className="relative w-full h-4 bg-slate-700 rounded-full overflow-hidden mb-2">
-          <div 
+          <div
             className="absolute top-0 left-0 h-full bg-blue-500 transition-all duration-300 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
-        
+
         <div className="flex justify-between text-sm">
           <span className="text-blue-400 font-medium">{progress}% Complete</span>
           <span className="text-slate-500">
@@ -61,10 +58,15 @@ export const UploadProgress: React.FC = () => {
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">File Details</h3>
+        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
+          File Details
+        </h3>
         <div className="space-y-2">
-          {files?.slice(0, 5).map(file => (
-            <div key={file.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700/50">
+          {files?.slice(0, 5).map((file) => (
+            <div
+              key={file.id}
+              className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700/50"
+            >
               <span className="text-sm truncate max-w-[70%]">{file.fileName}</span>
               {file.uploadedChunks.length * 1024 * 1024 >= file.size ? (
                 <span className="text-green-400 text-xs font-bold">DONE</span>
@@ -80,7 +82,7 @@ export const UploadProgress: React.FC = () => {
           )}
         </div>
       </div>
-      
+
       {study.status === 'complete' && (
         <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-center">
           <p className="text-green-400 font-bold mb-2">Upload Complete</p>

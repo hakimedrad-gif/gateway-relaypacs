@@ -196,4 +196,3 @@ Week 3: PACS Integration + Pilot
 ## 14. Conclusion
 
 This sprint plan provides a **realistic, disciplined path** to delivering RelayPACS as a pilot-ready healthcare ingestion system within three weeks, balancing speed with reliability, security, and usability.
-

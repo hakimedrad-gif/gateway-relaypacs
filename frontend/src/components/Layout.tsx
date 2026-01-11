@@ -18,8 +18,12 @@ export const Layout: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 text-xs font-mono text-slate-400 border border-slate-700 rounded-full px-3 py-1 bg-slate-800/50">
-                <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
-                {isOnline ? 'ONLINE' : 'OFFLINE'}
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                }`}
+              ></span>
+              {isOnline ? 'ONLINE' : 'OFFLINE'}
             </div>
           </div>
         </div>

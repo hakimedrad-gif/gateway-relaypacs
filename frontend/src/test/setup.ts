@@ -10,5 +10,5 @@ global.fetch = vi.fn();
 vi.mock('cornerstone-core', () => ({
   default: {
     // mock methods if used
-  }
+  },
 }));

@@ -205,4 +205,3 @@ Recommended sample size: 5–8 participants
 ## Conclusion
 
 These acceptance criteria and usability test scripts ensure RelayPACS meets clinical usability expectations, supports QA automation, and de-risks real-world pilot deployments in low-infrastructure settings.
-
