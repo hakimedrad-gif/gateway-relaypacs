@@ -1,9 +1,13 @@
-import React from 'react';
+import { NetworkStatus } from './NetworkStatus';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { Outlet } from 'react-router-dom';
 
 export const Layout: React.FC = () => {
+  const isOnline = useNetworkStatus();
+
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col">
+      <NetworkStatus />
       <header className="bg-slate-800 p-4 border-b border-slate-700 shadow-md sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -13,8 +17,10 @@ export const Layout: React.FC = () => {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            {/* Status indicators will go here */}
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" title="Online"></span>
+            <div className="flex items-center gap-2 text-xs font-mono text-slate-400 border border-slate-700 rounded-full px-3 py-1 bg-slate-800/50">
+                <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
+                {isOnline ? 'ONLINE' : 'OFFLINE'}
+            </div>
           </div>
         </div>
       </header>

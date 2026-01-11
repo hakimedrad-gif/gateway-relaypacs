@@ -50,7 +50,7 @@ def test_upload_duplicate_chunk(client, auth_headers, clean_storage, clean_uploa
     chunk_content = b"x" * 1024
     
     # Upload same chunk twice
-    for _ in range(2):
+    for i in range(2):
         chunk_res = client.put(
             f"/upload/{upload_id}/chunk",
             params={"chunk_index": 0, "file_id": "file1"},
@@ -58,6 +58,10 @@ def test_upload_duplicate_chunk(client, auth_headers, clean_storage, clean_uploa
             headers={"Authorization": f"Bearer {upload_token}"}
         )
         assert chunk_res.status_code == 200
+        if i == 0:
+            assert chunk_res.json()["status"] == "received"
+        else:
+            assert chunk_res.json()["status"] == "exists"
     
     # Status should show only 1 chunk (not 2)
     status_res = client.get(

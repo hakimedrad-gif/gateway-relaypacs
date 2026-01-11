@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Response
 from uuid import UUID
 from typing import Annotated
 
@@ -11,11 +11,14 @@ from app.upload.service import upload_manager
 from app.storage.service import storage_service
 from app.dicom.service import dicom_service
 from app.pacs.service import pacs_service
+from app.limiter import limiter
 
 router = APIRouter()
 
 @router.post("/init", response_model=UploadInitResponse)
+@limiter.limit("20/minute")
 async def initialize_upload(
+    request: Request,
     payload: UploadInitRequest,
     user: dict = Depends(get_current_user)
 ):
@@ -30,6 +33,7 @@ async def initialize_upload(
     )
 
 @router.put("/{upload_id}/chunk", response_model=ChunkUploadResponse)
+@limiter.limit("2000/minute")
 async def upload_chunk(
     upload_id: UUID,
     chunk_index: int,
@@ -50,28 +54,69 @@ async def upload_chunk(
     if not session:
         raise HTTPException(status_code=404, detail="Upload session not found")
     
+    # Idempotency check: If chunk exists, skip write but ensure session tracking
+    chunk_exists = await storage_service.chunk_exists(str(upload_id), file_id, chunk_index)
+    
+    received_bytes = 0
+    if chunk_exists:
+        # Check if already registered in session
+        if chunk_index in session.files.get(file_id, {}).get("chunks", set()):
+            # Fully idempotent case: physical file exists AND logical record exists
+            return Response(status_code=204) # No Content
+            
+        # Physical file exists but logic doesn't -> Update logic only
+        # We need to know the size though. For now, trust the client or stat the file?
+        # To be safe, if we don't have the body size (GET/HEAD checks don't give it easily without extra call),
+        # we might just register it.
+        # Ideally we'd get size from storage.
+        # For MVP: if physical exists, we assume it's good. 
+        # But we need 'received_bytes' for the response.
+        # Let's read request body size anyway to return it, OR just return 0/actual size of skipped write?
+        # The protocol for 204 doesn't return body.
+        pass # Fall through to logic registration, but skip save?
+        # Actually proper 204 doesn't return response model.
+        # But we defined response_model=ChunkUploadResponse.
+        # So maybe return 200 with "skipped" status?
+        # Or change return type.
+        
     body = await request.body()
     if not body:
         raise HTTPException(status_code=400, detail="Empty body")
-        
-    await storage_service.save_chunk(
-        str(upload_id), 
-        file_id, 
-        chunk_index, 
-        body
-    )
     
-    session.register_file_chunk(file_id, chunk_index, len(body))
+    received_bytes = len(body)
+    
+    if not chunk_exists:
+        await storage_service.save_chunk(
+            str(upload_id), 
+            file_id, 
+            chunk_index, 
+            body
+        )
+    
+    session.register_file_chunk(file_id, chunk_index, received_bytes if not chunk_exists else 0)
+    upload_manager.update_session(session) # Persist state
+    
+    if chunk_exists:
+        # Return 200 OK with data, but knowing we skipped write
+        return ChunkUploadResponse(
+            upload_id=upload_id,
+            file_id=file_id,
+            chunk_index=chunk_index,
+            received_bytes=received_bytes,
+            status="exists"
+        )
     
     return ChunkUploadResponse(
         upload_id=upload_id,
         file_id=file_id,
         chunk_index=chunk_index,
-        received_bytes=len(body)
+        received_bytes=received_bytes
     )
 
 @router.post("/{upload_id}/complete", response_model=UploadCompleteResponse)
+@limiter.limit("10/minute")
 async def complete_upload(
+    request: Request,
     upload_id: UUID,
     token: dict = Depends(get_upload_token)
 ):
@@ -172,6 +217,12 @@ async def get_status(
         total_bytes=total_bytes,
         state="uploading",
         chunks_received=total_received_chunks,
-        chunks_total=0, # total_chunks is not strictly tracked yet as it depends on client chunking
-        pacs_status="pending"
+        chunks_total=0,
+        pacs_status="pending",
+        files={
+            fid: {
+                "received_chunks": list(data["chunks"]),
+                "complete": data["complete"]
+            } for fid, data in session.files.items()
+        }
     )

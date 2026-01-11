@@ -37,3 +37,40 @@ def test_pacs_forward_files(mock_dicomweb_client, tmp_path):
     
     assert "STOW-SUCCESS-1" in receipt
     assert mock_instance.store_instances.called is True
+
+def test_pacs_fallback_to_rest(mock_dicomweb_client, tmp_path):
+    # Simulate STOW failure
+    mock_instance = mock_dicomweb_client.return_value
+    mock_instance.store_instances.side_effect = Exception("STOW Connection Error")
+    
+    # Create a dummy DICOM file
+    import pydicom
+    from pydicom.dataset import Dataset, FileMetaDataset
+    from pydicom.uid import ExplicitVRLittleEndian
+    
+    file_path = tmp_path / "fallback.dcm"
+    ds = Dataset()
+    ds.PatientName = "Fallback Patient"
+    ds.SOPClassUID = '1.2.3'
+    ds.SOPInstanceUID = '1.2.3.5'
+    
+    file_meta = FileMetaDataset()
+    file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    ds.file_meta = file_meta
+    ds.preamble = b"\0" * 128
+    ds.save_as(str(file_path), little_endian=True, implicit_vr=False)
+    
+    # Mock requests.post for the REST API
+    with patch('requests.post') as mock_post:
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.json.return_value = {"Status": "Success"}
+        
+        service = PACSService()
+        receipt = service.forward_files([file_path])
+        
+        assert "FALLBACK-SUCCESS-1" in receipt
+        # Verify STOW was tried first
+        assert mock_instance.store_instances.called is True
+        # Verify REST API was called
+        assert mock_post.called is True
+        assert mock_post.call_args[0][0].endswith("/instances")

@@ -15,6 +15,9 @@ class BaseStorageService:
         
     async def cleanup_upload(self, upload_id: str):
         raise NotImplementedError()
+        
+    async def chunk_exists(self, upload_id: str, file_id: str, chunk_index: int) -> bool:
+        raise NotImplementedError()
 
 class LocalStorageService(BaseStorageService):
     def __init__(self):
@@ -28,6 +31,10 @@ class LocalStorageService(BaseStorageService):
         with open(chunk_path, "wb") as f:
             f.write(chunk_data)
         return str(chunk_path)
+        
+    async def chunk_exists(self, upload_id: str, file_id: str, chunk_index: int) -> bool:
+        chunk_path = self.base_path / str(upload_id) / str(file_id) / f"{chunk_index}.part"
+        return chunk_path.exists()
     
     async def merge_chunks(self, upload_id: str, file_id: str, total_chunks: int) -> Path:
         file_dir = self.base_path / str(upload_id) / str(file_id)
@@ -61,6 +68,14 @@ class S3StorageService(BaseStorageService):
         key = f"{upload_id}/{file_id}/chunks/{chunk_index}.part"
         self.s3.put_object(Bucket=self.bucket, Key=key, Body=chunk_data)
         return f"s3://{self.bucket}/{key}"
+        
+    async def chunk_exists(self, upload_id: str, file_id: str, chunk_index: int) -> bool:
+        key = f"{upload_id}/{file_id}/chunks/{chunk_index}.part"
+        try:
+            self.s3.head_object(Bucket=self.bucket, Key=key)
+            return True
+        except ClientError:
+            return False
 
     async def merge_chunks(self, upload_id: str, file_id: str, total_chunks: int) -> str:
         # For simplicity in MVP, we might download chunks and merge locally, 

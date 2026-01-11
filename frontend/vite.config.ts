@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -66,6 +67,20 @@ export default defineConfig({
               },
               cacheableResponse: {
                 statuses: [0, 200]
+              }
+            }
+          },
+          {
+            // Background Sync for Upload Init and Completion
+            urlPattern: /\/upload\/(init|.*\/complete)/,
+            method: 'POST',
+            handler: 'NetworkOnly',
+            options: {
+              backgroundSync: {
+                name: 'upload-queue',
+                options: {
+                  maxRetentionTime: 24 * 60 // Retry for 24 hours
+                }
               }
             }
           }

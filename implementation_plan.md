@@ -217,6 +217,24 @@ Monitoring: Structured JSON logging
 
 ---
 
+## 9. Sprint 2 Detailed Plan: Offline & Resumable Uploads
+
+### 9.1 Backend Resilience
+- **Status Endpoint Enhancement**: Update `GET /upload/{id}/status` to return a `missing_chunks` array, allowing the client to intelligently resume without re-uploading existing data.
+- **Idempotency**: Ensure `PUT /upload/{id}/chunk` checks for existing chunks on disk/S3 before processing, returning `204 No Content` if already present.
+- **Session Persistence**: Transition session state from in-memory to a persisted JSON file (as a fallback for Redis) to ensure session survival across server restarts.
+
+### 9.2 Frontend Offline Strategy
+- **Background Sync**: Integrate Workbox `BackgroundSyncPlugin` to automatically retry failed upload requests (init/complete) when the device reconnects.
+- **Network Awareness**: Implement a `useNetworkStatus` hook to toggle UI states and pause/resume active uploads gracefully.
+- **Queue Persistence**: Ensure the `files` and `chunks` tables in IndexedDB are used as the source of truth, allowing the app to reload and "continue where it left off" even after a browser crash.
+
+### 9.3 Verification Plan (Sprint 2)
+- **Simulated Offline**: Using DevTools to throttle/cut network during an active upload.
+- **Manifest Validation**: Verifying the server-side chunk manifest matches the client-side queue.
+- **Browser Reload Test**: Navigating away or refreshing the page mid-upload to verify auto-resumption.
+
+---
 ## Reference Documents
 
 All specification documents located in: `/home/ubuntu-desk/Desktop/Teleradiology/geteway/`

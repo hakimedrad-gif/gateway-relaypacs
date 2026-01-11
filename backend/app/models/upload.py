@@ -46,6 +46,7 @@ class UploadStatusResponse(BaseModel):
     chunks_received: int
     chunks_total: int
     pacs_status: str
+    files: dict[str, dict] = Field(default_factory=dict, description="Map of file_id to status details")
 
 
 class UploadCompleteResponse(BaseModel):

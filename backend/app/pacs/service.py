@@ -34,13 +34,48 @@ class PACSService:
         if not datasets:
             raise ValueError("No datasets to forward")
             
-        # Store instances
-        # dicomweb-client handles the multipart encoding
-        response = self.client.store_instances(datasets=datasets)
+        try:
+            # Store instances via DICOMweb (STOW-RS)
+            # dicomweb-client handles the multipart encoding
+            response = self.client.store_instances(datasets=datasets)
+            return "STOW-SUCCESS-" + str(len(datasets))
+            
+        except Exception as e:
+            print(f"STOW-RS failed, attempting Orthanc REST fallback: {e}")
+            # Fallback to Orthanc native REST API
+            return self._forward_via_orthanc_rest(file_paths)
+
+    def _forward_via_orthanc_rest(self, file_paths: List[Path | str]) -> str:
+        """Fallback: Upload to Orthanc via native REST API (POST /instances)"""
+        import requests
+        success_count = 0
+        errors = []
         
-        # In a real PACS, we'd extract a transaction UID or similar
-        # For Orthanc, it returns metadata about what was stored.
-        return "STOW-SUCCESS-" + str(len(datasets))
+        auth = None
+        if settings.orthanc_username and settings.orthanc_password:
+            auth = (settings.orthanc_username, settings.orthanc_password)
+            
+        url = f"{settings.orthanc_url}/instances"
+        
+        for path in file_paths:
+            try:
+                with open(path, 'rb') as f:
+                    content = f.read()
+                    
+                resp = requests.post(url, data=content, auth=auth, timeout=30)
+                resp.raise_for_status()
+                success_count += 1
+            except Exception as e:
+                errors.append(str(e))
+                print(f"Orthanc REST upload failed for {path}: {e}")
+                
+        if success_count == 0 and errors:
+            raise RuntimeError(f"All fallback uploads failed: {errors}")
+            
+        if success_count < len(file_paths):
+            return f"PARTIAL-FALLBACK-SUCCESS-{success_count}/{len(file_paths)}"
+            
+        return f"FALLBACK-SUCCESS-{success_count}"
 
 # Singleton instance
 pacs_service = PACSService()

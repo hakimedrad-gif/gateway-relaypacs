@@ -1,4 +1,5 @@
-import { Dexie, Table } from 'dexie';
+import { Dexie } from 'dexie';
+import type { Table } from 'dexie';
 
 // Define interfaces for our data models
 export interface StudyMetadata {
@@ -11,6 +12,7 @@ export interface StudyMetadata {
 export interface Study {
   id?: number;
   uploadId?: string; // UUID from backend
+  uploadToken?: string; // Scoped token for resume
   status: 'queued' | 'uploading' | 'complete' | 'failed';
   metadata: StudyMetadata;
   clinicalNotes?: string;
@@ -26,7 +28,7 @@ export interface FileRecord {
   fileName: string;
   fileType: string;
   size: number;
-  blob: Blob; // Store file content
+  blob: Blob | ArrayBuffer; // Store file content
   uploadedChunks: number[]; // Indices of uploaded chunks
 }
 

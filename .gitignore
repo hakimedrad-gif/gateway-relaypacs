@@ -18,3 +18,7 @@ dist/
 .vscode/
 .idea/
 backend/storage_temp/
+temp_uploads/
+data/
+*.dcm
+test_temp_uploads/
