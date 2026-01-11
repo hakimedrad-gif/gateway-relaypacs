@@ -6,7 +6,11 @@ export interface StudyMetadata {
   patientName: string;
   studyDate: string;
   modality: string;
+  age?: string;
+  gender?: string;
+  serviceLevel?: string;
   studyDescription?: string;
+  clinicalHistory?: string;
 }
 
 export interface Study {

@@ -22,6 +22,9 @@ export const UploadStudy: React.FC = () => {
     return null;
   };
 
+  const [modality, setModality] = useState('CT');
+  const [serviceLevel, setServiceLevel] = useState('routine');
+
   const handleFileSelect = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       if (event.target.files && event.target.files.length > 0) {
@@ -38,7 +41,8 @@ export const UploadStudy: React.FC = () => {
         const metadata = {
           patient_name: 'DOE^JOHN', // TODO: Extract from DICOM
           study_date: new Date().toISOString().split('T')[0],
-          modality: 'CT',
+          modality: modality,
+          service_level: serviceLevel,
         };
 
         try {
@@ -53,7 +57,7 @@ export const UploadStudy: React.FC = () => {
         }
       }
     },
-    [navigate],
+    [navigate, modality, serviceLevel],
   );
 
   const triggerFileInput = () => {
@@ -72,6 +76,40 @@ export const UploadStudy: React.FC = () => {
           {error}
         </div>
       )}
+
+      <div className="w-full max-w-sm grid grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Modality
+          </label>
+          <select
+            value={modality}
+            onChange={(e) => setModality(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+          >
+            <option value="CR">Radiograph/X-ray</option>
+            <option value="CT">CT-scan</option>
+            <option value="MR">MRI</option>
+            <option value="XC">Fluoroscopy</option>
+            <option value="US">Ultrasound</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Service Level
+          </label>
+          <select
+            value={serviceLevel}
+            onChange={(e) => setServiceLevel(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+          >
+            <option value="routine">Routine</option>
+            <option value="emergency">Emergency</option>
+            <option value="stat">Stat</option>
+            <option value="subspecialty">Subspecialty Opinion</option>
+          </select>
+        </div>
+      </div>
 
       <div
         onClick={triggerFileInput}
@@ -130,7 +168,7 @@ export const UploadStudy: React.FC = () => {
               d="M12 4v16m8-8H4"
             ></path>
           </svg>
-          Upload Study
+          Add Study Files
         </button>
         <button className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl border border-slate-700 transition-all active:scale-95 text-sm">
           Scan QR Code

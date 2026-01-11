@@ -16,7 +16,7 @@ from app.models.upload import (
 )
 from app.pacs.service import pacs_service
 from app.storage.service import storage_service
-from app.upload.service import upload_manager
+from app.upload.service import stats_manager, upload_manager
 
 router = APIRouter()
 
@@ -31,7 +31,10 @@ async def initialize_upload(
     await upload_manager.cleanup_expired_sessions(storage_service)
 
     return await upload_manager.create_session(
-        payload.study_metadata, payload.total_files, payload.total_size_bytes
+        payload.study_metadata,
+        payload.total_files,
+        payload.total_size_bytes,
+        payload.clinical_history,
     )
 
 
@@ -172,6 +175,12 @@ async def complete_upload(
         # Forwarding failed but files were processed
         status = "partial_success"
 
+    # Always record stats if we have metadata
+    if session.metadata:
+        stats_manager.record_upload(
+            session.metadata.modality, session.metadata.service_level, status=status
+        )
+
     # Always cleanup temp files after completion attempt
     await storage_service.cleanup_upload(str(upload_id))
 
@@ -185,6 +194,14 @@ async def complete_upload(
         pacs_receipt_id=pacs_receipt_id,
         warnings=warnings,
     )
+
+
+@router.get("/stats")
+async def get_upload_stats(
+    period: str | None = None, user: dict[str, Any] = Depends(get_current_user)
+) -> dict[str, Any]:
+    """Get aggregated upload statistics"""
+    return stats_manager.get_stats(period)
 
 
 @router.get("/{upload_id}/status", response_model=UploadStatusResponse)

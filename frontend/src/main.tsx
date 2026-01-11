@@ -57,6 +57,8 @@ const ProgressGuard = () => {
   return <UploadProgress />;
 };
 
+import { Dashboard } from './pages/Dashboard';
+
 const router = createBrowserRouter([
   {
     path: '/login',
@@ -73,6 +75,10 @@ const router = createBrowserRouter([
       {
         index: true,
         element: <UploadStudy />,
+      },
+      {
+        path: 'dashboard',
+        element: <Dashboard />,
       },
       {
         path: 'metadata/:studyId',

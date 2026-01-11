@@ -1,4 +1,5 @@
 import json
+import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -13,11 +14,17 @@ settings = get_settings()
 
 
 class UploadSession:
-    def __init__(
-        self, upload_id: str, total_files: int, total_size_bytes: int, metadata: StudyMetadata
+    def __init__(  # noqa: PLR0913
+        self,
+        upload_id: str,
+        total_files: int,
+        total_size_bytes: int,
+        metadata: StudyMetadata,
+        clinical_history: str | None = None,
     ) -> None:
         self.upload_id = upload_id
         self.metadata = metadata
+        self.clinical_history = clinical_history
         self.total_files = total_files
         self.total_size_bytes = total_size_bytes
         self.uploaded_bytes = 0
@@ -51,6 +58,7 @@ class UploadManager:
         data = {
             "upload_id": session.upload_id,
             "metadata": session.metadata.model_dump(),
+            "clinical_history": session.clinical_history,
             "total_files": session.total_files,
             "total_size_bytes": session.total_size_bytes,
             "uploaded_bytes": session.uploaded_bytes,
@@ -74,7 +82,11 @@ class UploadManager:
                 # Reconstruct session
                 meta = StudyMetadata(**data["metadata"])
                 session = UploadSession(
-                    data["upload_id"], data["total_files"], data["total_size_bytes"], meta
+                    data["upload_id"],
+                    data["total_files"],
+                    data["total_size_bytes"],
+                    meta,
+                    data.get("clinical_history"),
                 )
                 session.uploaded_bytes = data["uploaded_bytes"]
                 session.created_at = datetime.fromisoformat(data["created_at"])
@@ -95,10 +107,14 @@ class UploadManager:
                 print(f"Failed to load session {session_file}: {e}")
 
     async def create_session(
-        self, metadata: StudyMetadata, total_files: int, total_size: int
+        self,
+        metadata: StudyMetadata,
+        total_files: int,
+        total_size: int,
+        clinical_history: str | None = None,
     ) -> UploadInitResponse:
         upload_id = uuid4()
-        session = UploadSession(str(upload_id), total_files, total_size, metadata)
+        session = UploadSession(str(upload_id), total_files, total_size, metadata, clinical_history)
         self._sessions[str(upload_id)] = session
         self._save_session(session)
 
@@ -142,5 +158,105 @@ class UploadManager:
         self._save_session(session)
 
 
-# Singleton
+class StatsManager:
+    """Manager for upload statistics using SQLite for concurrency safety"""
+
+    def __init__(self, db_path: Path | str = "data/stats.db") -> None:
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._init_db()
+
+    def _init_db(self) -> None:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS upload_stats (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    modality TEXT,
+                    service_level TEXT,
+                    status TEXT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            # Metadata table for last updated
+            conn.execute("CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT)")
+
+    def record_upload(self, modality: str, service_level: str, status: str = "success") -> None:
+        modality = modality.lower()
+        service_level = service_level.lower()
+        status = status.lower()
+
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                "INSERT INTO upload_stats (modality, service_level, status) VALUES (?, ?, ?)",
+                (modality, service_level, status),
+            )
+            conn.execute(
+                "INSERT OR REPLACE INTO metadata (key, value) VALUES ('last_updated', ?)",
+                (datetime.now(UTC).isoformat(),),
+            )
+
+    def get_stats(self, period: str | None = None) -> dict[str, Any]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+
+            # Period mapping to SQLite interval
+            period_map = {
+                "1w": "-7 days",
+                "2w": "-14 days",
+                "1m": "-30 days",
+                "3m": "-90 days",
+                "6m": "-180 days",
+            }
+
+            time_filter = ""
+            params = []
+            if period and period in period_map:
+                time_filter = " AND timestamp >= datetime('now', ?)"
+                params.append(period_map[period])
+
+            # Aggregate modality counts
+            modalities = conn.execute(
+                "SELECT modality, COUNT(*) as count FROM upload_stats "
+                f"WHERE status = 'success'{time_filter} "
+                "GROUP BY modality",
+                params,
+            ).fetchall()
+
+            # Aggregate service level counts
+            service_levels = conn.execute(
+                "SELECT service_level, COUNT(*) as count FROM upload_stats "
+                f"WHERE status = 'success'{time_filter} "
+                "GROUP BY service_level",
+                params,
+            ).fetchall()
+
+            # Total counts
+            total_success = conn.execute(
+                f"SELECT COUNT(*) FROM upload_stats WHERE status = 'success'{time_filter}",
+                params,
+            ).fetchone()[0]
+
+            total_failed = conn.execute(
+                f"SELECT COUNT(*) FROM upload_stats WHERE status = 'failed'{time_filter}",
+                params,
+            ).fetchone()[0]
+
+            last_updated = conn.execute(
+                "SELECT value FROM metadata WHERE key = 'last_updated'"
+            ).fetchone()
+
+            return {
+                "modality": {row["modality"]: row["count"] for row in modalities},
+                "service_level": {row["service_level"]: row["count"] for row in service_levels},
+                "total_uploads": total_success,
+                "failed_uploads": total_failed,
+                "last_updated": last_updated[0] if last_updated else None,
+                "period": period or "all",
+            }
+
+
+# Singletons
 upload_manager = UploadManager()
+stats_manager = StatsManager("data/stats.db")

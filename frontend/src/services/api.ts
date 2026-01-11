@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8003';
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -22,7 +22,11 @@ export interface StudyMetadata {
   patient_name?: string;
   study_date?: string;
   modality?: string;
+  age?: string;
+  gender?: string;
+  service_level?: string;
   study_description?: string;
+  clinical_history?: string;
 }
 
 export interface UploadInitResponse {
@@ -57,6 +61,14 @@ export interface UploadStatusResponse {
   >;
 }
 
+export interface UploadStats {
+  modality: Record<string, number>;
+  service_level: Record<string, number>;
+  total_uploads: number;
+  failed_uploads: number;
+  last_updated: string | null;
+}
+
 export const uploadApi = {
   login: async (username: string, password: string): Promise<{ access_token: string }> => {
     const response = await api.post('/auth/login', { username, password });
@@ -67,11 +79,13 @@ export const uploadApi = {
     metadata: StudyMetadata,
     totalFiles: number,
     totalSize: number,
+    clinicalHistory?: string,
   ): Promise<UploadInitResponse> => {
     const response = await api.post('/upload/init', {
       study_metadata: metadata,
       total_files: totalFiles,
       total_size_bytes: totalSize,
+      clinical_history: clinicalHistory,
     });
     return response.data;
   },
@@ -120,6 +134,11 @@ export const uploadApi = {
         },
       },
     );
+    return response.data;
+  },
+
+  getStats: async (period?: string): Promise<UploadStats> => {
+    const response = await api.get('/upload/stats', { params: { period } });
     return response.data;
   },
 };

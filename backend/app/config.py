@@ -22,10 +22,14 @@ class Settings(BaseSettings):
 
     # API
     api_host: str = "0.0.0.0"
-    api_port: int = 8000
+    api_port: int = 8003
 
     # CORS
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    cors_origins: list[str] = [
+        "http://localhost:3002",
+        "http://10.10.20.50:3002",
+        "http://localhost:3000",
+    ]
 
     # S3 Storage
     use_s3: bool = False

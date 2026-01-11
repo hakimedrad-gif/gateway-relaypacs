@@ -27,6 +27,12 @@ TEST_USERS = {
 }
 
 
+class RegisterRequest(BaseModel):
+    username: str
+    email: str
+    password: str
+
+
 @router.post("/login", response_model=TokenResponse)
 async def login(credentials: LoginRequest) -> TokenResponse | dict[str, str]:
     """
@@ -43,6 +49,27 @@ async def login(credentials: LoginRequest) -> TokenResponse | dict[str, str]:
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    access_token = create_access_token(data={"sub": username})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/register", response_model=TokenResponse)
+async def register(credentials: RegisterRequest) -> TokenResponse | dict[str, str]:
+    """
+    Mock registration endpoint to create new user accounts.
+    """
+    username = credentials.username
+    password = credentials.password
+
+    if username in TEST_USERS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User ID already exists. Please choose another one.",
+        )
+
+    # In real world, save to database and use hashed password
+    TEST_USERS[username] = password
 
     access_token = create_access_token(data={"sub": username})
     return {"access_token": access_token, "token_type": "bearer"}

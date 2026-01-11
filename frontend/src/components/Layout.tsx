@@ -48,6 +48,20 @@ export const Layout: React.FC = () => {
               </p>
             </div>
           </div>
+          <nav className="hidden md:flex items-center gap-6 ml-12">
+            <button
+              onClick={() => navigate('/')}
+              className="text-sm font-bold text-slate-400 hover:text-white transition-colors"
+            >
+              UPLOAD
+            </button>
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="text-sm font-bold text-slate-400 hover:text-white transition-colors"
+            >
+              DASHBOARD
+            </button>
+          </nav>
           <div className="flex items-center gap-3">
             <div
               aria-label={isOnline ? 'System Online' : 'System Offline'}
@@ -82,9 +96,41 @@ export const Layout: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 container mx-auto p-4 max-w-md md:max-w-2xl">
+      <main className="flex-1 container mx-auto p-4 max-w-md md:max-w-2xl pb-24 md:pb-8">
         <Outlet />
       </main>
+
+      {/* Mobile Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-white/5 p-4 flex justify-around items-center z-50">
+        <button
+          onClick={() => navigate('/')}
+          className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-500 transition-colors"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+            />
+          </svg>
+          <span className="text-[10px] font-bold">UPLOAD</span>
+        </button>
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-500 transition-colors"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2"
+            />
+          </svg>
+          <span className="text-[10px] font-bold">DASHBOARD</span>
+        </button>
+      </nav>
 
       <footer className="p-4 text-center text-slate-500 text-sm">
         <p>&copy; {new Date().getFullYear()} RelayPACS - Secure DICOM Ingestion</p>
