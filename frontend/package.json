@@ -12,7 +12,9 @@
     "format": "prettier --write .",
     "preview": "vite preview",
     "test": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "preview:prod": "npm run build && vite preview --port 4173 --host",
+    "analyze": "vite build --mode analyze"
   },
   "dependencies": {
     "@types/uuid": "^10.0.0",

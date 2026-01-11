@@ -107,6 +107,56 @@ It is intended for QA, frontend engineers, product owners, and usability testers
 - When rendered on mobile
 - Then the touch target is at least 44px
 
+**AC-16: Primary Action Focus**
+- Given any screen in the upload flow
+- When the screen is viewed
+- Then exactly one primary CTA is visually dominant and thumb-reachable
+
+**AC-17: Persistent Connectivity Badge**
+- Given the user is on any screen (Home, Metadata, Progress)
+- When network status changes
+- Then a persistent indicator in the Header reflects the current state (Online/Offline)
+
+**AC-18: Linear Workflow Integrity**
+- Given the application state
+- When the user attempts to deep-link to progress or metadata without an active study
+- Then the user is redirected to the Home/Upload screen
+
+**AC-19: High-Volume File Handling**
+- Given a study with >100 files
+- When the progress screen loads
+- Then the layout remains stable (e.g., using summary or scrollable list)
+
+**AC-20: Immediate Clinical Note Persistence**
+- Given the metadata confirmation screen
+- When the user types in the clinical impression field
+- Then the changes are persisted to local storage immediately without explicit save
+
+**AC-21: PWA Installation Awareness**
+- Given the app is running in a standalone-capable browser
+- When the app is not yet installed
+- Then a subtle prompt or guide helps the user install the PWA
+
+**AC-22: Basic Accessibility Labels**
+- Given any interactive icon or button without text
+- When a screen reader is used
+- Then a descriptive aria-label is provided
+
+**AC-23: Navigation Safeguard**
+- Given the metadata confirmation screen with unsaved changes
+- When the user attempts to navigate back to Home
+- Then a confirmation dialog prevents accidental data loss
+
+**AC-24: Security & Privacy indicator**
+- Given an active upload session
+- When uploading clinical data
+- Then a visual cue (e.g., lock icon or "Secure Upload") confirms encrypted transmission
+
+**AC-25: Retry Logic Visibility**
+- Given a network error occurs
+- When the system enters exponential backoff
+- Then the status text explicitly states "Retrying in X seconds" instead of a static error
+
 ---
 
 ## Part B: Usability Test Script (Pilot)

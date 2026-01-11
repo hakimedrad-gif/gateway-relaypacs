@@ -1,15 +1,38 @@
 import * as React from 'react';
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { uploadManager } from '../services/uploadManager';
 
 export const UploadStudy: React.FC = () => {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const validateFiles = (files: File[]) => {
+    const validExtensions = ['.dcm', '.zip', '.jpg', '.jpeg', '.png'];
+    const hasInvalid = files.some((file) => {
+      const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      // DICOM files often don't have extensions, so we check for that or common types
+      return !validExtensions.includes(ext) && ext !== '' && !file.type.includes('dicom');
+    });
+
+    if (hasInvalid) {
+      return 'Some files are not supported. Please ensure you are uploading DICOM, ZIP, or images.';
+    }
+    return null;
+  };
 
   const handleFileSelect = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       if (event.target.files && event.target.files.length > 0) {
+        setError(null);
         const files = Array.from(event.target.files) as File[];
+
+        const validationError = validateFiles(files);
+        if (validationError) {
+          setError(validationError);
+          return;
+        }
 
         // Basic Metadata Extraction (Mock for Sprint 1)
         const metadata = {
@@ -24,12 +47,18 @@ export const UploadStudy: React.FC = () => {
           navigate(`/metadata/${studyId}`);
         } catch (err) {
           console.error('Upload failed', err);
-          alert('Failed to start upload');
+          setError(
+            'Failed to start upload. Please try again or contact support if the issue persists.',
+          );
         }
       }
     },
     [navigate],
   );
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
@@ -38,7 +67,16 @@ export const UploadStudy: React.FC = () => {
         <p className="text-slate-400">Select DICOM files or folders to begin</p>
       </div>
 
-      <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-slate-600 border-dashed rounded-lg cursor-pointer bg-slate-800 hover:bg-slate-700 hover:border-blue-500 transition-all group">
+      {error && (
+        <div className="w-full max-w-sm p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+          {error}
+        </div>
+      )}
+
+      <div
+        onClick={triggerFileInput}
+        className="flex flex-col items-center justify-center w-full h-64 border-2 border-slate-600 border-dashed rounded-lg cursor-pointer bg-slate-800 hover:bg-slate-700 hover:border-blue-500 transition-all group"
+      >
         <div className="flex flex-col items-center justify-center pt-5 pb-6 text-slate-400 group-hover:text-blue-400">
           <svg
             className="w-12 h-12 mb-4"
@@ -61,6 +99,7 @@ export const UploadStudy: React.FC = () => {
           <p className="text-xs">DICOM, ZIP, or Folder</p>
         </div>
         <input
+          ref={fileInputRef}
           type="file"
           className="hidden"
           multiple
@@ -68,11 +107,32 @@ export const UploadStudy: React.FC = () => {
           // @ts-expect-error - webkitdirectory is not in React types yet
           webkitdirectory=""
           directory=""
+          aria-label="Upload DICOM files"
         />
-      </label>
+      </div>
 
-      <div className="w-full max-w-sm">
-        <button className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg shadow-lg shadow-blue-900/50 transition-all active:scale-95">
+      <div className="w-full max-w-sm space-y-4 mt-auto sm:mt-0">
+        <button
+          onClick={triggerFileInput}
+          className="w-full py-5 px-6 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl shadow-xl shadow-blue-900/50 transition-all active:scale-95 text-xl flex items-center justify-center gap-2 border-b-4 border-blue-800"
+        >
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 4v16m8-8H4"
+            ></path>
+          </svg>
+          Upload Study
+        </button>
+        <button className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl border border-slate-700 transition-all active:scale-95 text-sm">
           Scan QR Code
         </button>
       </div>
