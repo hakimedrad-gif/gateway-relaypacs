@@ -11,6 +11,9 @@ class StudyMetadata(BaseModel):
     patient_name: str
     study_date: str
     modality: str
+    age: str | None = None
+    gender: str | None = None
+    service_level: str = "routine"  # routine, emergency, stat, subspecialty
     study_description: str | None = None
 
 
@@ -20,7 +23,7 @@ class UploadInitRequest(BaseModel):
     study_metadata: StudyMetadata
     total_files: int = Field(gt=0, description="Total number of files to upload")
     total_size_bytes: int = Field(gt=0, description="Total size in bytes")
-    clinical_notes: str | None = None
+    clinical_history: str | None = None
 
 
 class UploadInitResponse(BaseModel):

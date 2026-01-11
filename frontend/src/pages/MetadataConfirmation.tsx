@@ -14,7 +14,10 @@ export const MetadataConfirmation: React.FC = () => {
     patientName: '',
     studyDate: '',
     modality: '',
+    age: '',
+    gender: '',
     clinicalNotes: '',
+    clinicalHistory: '',
   });
 
   // Load initial data
@@ -24,7 +27,10 @@ export const MetadataConfirmation: React.FC = () => {
         patientName: study.metadata.patientName,
         studyDate: study.metadata.studyDate,
         modality: study.metadata.modality,
+        age: study.metadata.age || '',
+        gender: study.metadata.gender || '',
         clinicalNotes: study.metadata.studyDescription || '',
+        clinicalHistory: study.metadata.clinicalHistory || '',
       });
     }
   }, [study]);
@@ -58,7 +64,10 @@ export const MetadataConfirmation: React.FC = () => {
     await db.studies.update(Number(studyId), {
       metadata: {
         ...study.metadata,
+        age: formData.age,
+        gender: formData.gender,
         studyDescription: formData.clinicalNotes,
+        clinicalHistory: formData.clinicalHistory,
       },
     });
 
@@ -133,13 +142,62 @@ export const MetadataConfirmation: React.FC = () => {
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="age" className="block text-sm font-medium text-slate-300 mb-1">
+              Age (Confirm)
+            </label>
+            <input
+              id="age"
+              type="text"
+              value={formData.age}
+              onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+              placeholder="e.g. 45Y"
+            />
+          </div>
+          <div>
+            <label htmlFor="gender" className="block text-sm font-medium text-slate-300 mb-1">
+              Gender (Confirm)
+            </label>
+            <select
+              id="gender"
+              value={formData.gender}
+              onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="">Select Gender</option>
+              <option value="M">Male (M)</option>
+              <option value="F">Female (F)</option>
+              <option value="O">Other (O)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label
+            htmlFor="clinicalHistory"
+            className="block text-sm font-medium text-slate-300 mb-1"
+          >
+            Clinical History
+          </label>
+          <textarea
+            id="clinicalHistory"
+            rows={2}
+            value={formData.clinicalHistory}
+            onChange={(e) => setFormData({ ...formData, clinicalHistory: e.target.value })}
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            placeholder="Reason for study, symptoms, etc..."
+          />
+        </div>
+
         <div>
           <label htmlFor="clinicalNotes" className="block text-sm font-medium text-slate-300 mb-1">
-            Clinical Notes (Editable)
+            Additional Notes
           </label>
           <textarea
             id="clinicalNotes"
-            rows={3}
+            rows={2}
             value={formData.clinicalNotes}
             onChange={(e) => setFormData({ ...formData, clinicalNotes: e.target.value })}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"

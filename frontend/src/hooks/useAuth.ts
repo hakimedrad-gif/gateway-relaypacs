@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
 
 const AUTH_TOKEN_KEY = 'relaypacs_auth_token';
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
 
 interface AuthState {
   token: string | null;
@@ -41,6 +41,28 @@ export const useAuth = () => {
     }
   }, []);
 
+  const register = useCallback(async (username: string, email: string, password: string) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/auth/register`, {
+        username,
+        email,
+        password,
+      });
+
+      const { access_token } = response.data;
+      localStorage.setItem(AUTH_TOKEN_KEY, access_token);
+      setAuthState({
+        token: access_token,
+        username,
+        isAuthenticated: true,
+      });
+      return true;
+    } catch (error) {
+      console.error('Registration failed:', error);
+      throw error;
+    }
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     setAuthState({
@@ -68,6 +90,7 @@ export const useAuth = () => {
   return {
     ...authState,
     login,
+    register,
     logout,
   };
 };

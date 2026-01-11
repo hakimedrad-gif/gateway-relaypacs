@@ -6,8 +6,11 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.auth.router import router as auth_router
+from app.config import get_settings
 from app.limiter import limiter
 from app.upload.router import router as upload_router
+
+settings = get_settings()
 
 app = FastAPI(
     title="RelayPACS API",
@@ -18,7 +21,7 @@ app = FastAPI(
 # CORS middleware for frontend development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

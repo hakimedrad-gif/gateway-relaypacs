@@ -103,4 +103,9 @@ export default defineConfig({
     setupFiles: './src/test/setup.ts',
     css: true,
   },
+  server: {
+    port: 3002,
+    host: '0.0.0.0',
+    strictPort: true,
+  },
 });

@@ -24,7 +24,11 @@ export class UploadManagerService {
         patientName: metadata.patient_name || '',
         studyDate: metadata.study_date || '',
         modality: metadata.modality || '',
+        age: metadata.age || '',
+        gender: metadata.gender || '',
+        serviceLevel: metadata.service_level || 'routine',
         studyDescription: metadata.study_description || '',
+        clinicalHistory: metadata.clinical_history || '',
       },
       totalFiles: files.length,
       totalSize: totalSize,
@@ -99,9 +103,13 @@ export class UploadManagerService {
           patient_name: study.metadata.patientName,
           study_date: study.metadata.studyDate,
           modality: study.metadata.modality,
+          age: study.metadata.age,
+          gender: study.metadata.gender,
+          service_level: study.metadata.serviceLevel,
         },
         study.totalFiles,
         study.totalSize,
+        study.metadata.clinicalHistory,
       );
       uploadId = initResponse.upload_id;
       uploadToken = initResponse.upload_token;
