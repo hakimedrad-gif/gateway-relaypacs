@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     upload_token_expire_minutes: int = 30
 
+    # Database
+    database_url: str = (
+        "sqlite:///./relaypacs.db"  # Default to SQLite, override with postgres://... in production
+    )
+
     # API
     api_host: str = "0.0.0.0"
     api_port: int = 8003
@@ -40,15 +45,23 @@ class Settings(BaseSettings):
     s3_region: str = "us-east-1"
 
     # PACS
+    pacs_type: str = "orthanc"  # 'orthanc' or 'dcm4chee'
     pacs_stow_url: str = "http://localhost:8042/dicom-web/studies"
     pacs_auth_type: str = "basic"
     orthanc_url: str = "http://localhost:8042"
     orthanc_username: str = "orthanc"
     orthanc_password: str = "orthanc"
 
+    # dcm4chee specific
+    dcm4chee_stow_url: str = "http://localhost:8081/dcm4chee-arc/aets/DCM4CHEE/rs/studies"
+
     # Upload limits
     max_file_size_mb: int = 2048
     chunk_size_mb: int = 1
+
+    # Reports & Notifications
+    reports_db_path: str = "data/reports.db"
+    pacs_poll_interval_seconds: int = 60  # Poll PACS for report updates
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 

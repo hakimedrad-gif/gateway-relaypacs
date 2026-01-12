@@ -5,9 +5,13 @@ from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from app.auth.logout import router as logout_router
+from app.auth.refresh import router as refresh_router
 from app.auth.router import router as auth_router
 from app.config import get_settings
 from app.limiter import limiter
+from app.notifications.router import router as notifications_router
+from app.reports.router import router as reports_router
 from app.upload.router import router as upload_router
 
 settings = get_settings()
@@ -35,6 +39,31 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on app startup."""
+    # Initialize reports database
+    from app.reports.pacs_sync import pacs_sync_service
+
+    print("✓ Reports database initialized")
+
+    # Start PACS sync service
+    await pacs_sync_service.start()
+    print("✓ PACS Report Sync Service started")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on app shutdown."""
+    from app.reports.pacs_sync import pacs_sync_service
+
+    # Stop PACS sync service
+    await pacs_sync_service.stop()
+    print("✓ PACS Report Sync Service stopped")
+
+    print("✓ Shutting down gracefully")
+
+
 @app.get("/health")
 async def health_check() -> JSONResponse:
     """Health check endpoint"""
@@ -55,4 +84,8 @@ async def root() -> dict[str, str]:
 
 
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(refresh_router, prefix="/auth", tags=["auth"])  # Add refresh endpoint
+app.include_router(logout_router, prefix="/auth", tags=["auth"])  # Add logout endpoint
 app.include_router(upload_router, prefix="/upload", tags=["upload"])
+app.include_router(reports_router, prefix="/reports", tags=["reports"])
+app.include_router(notifications_router, prefix="/notifications", tags=["notifications"])

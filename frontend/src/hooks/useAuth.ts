@@ -2,7 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
 
 const AUTH_TOKEN_KEY = 'relaypacs_auth_token';
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+const REFRESH_TOKEN_KEY = 'relaypacs_refresh_token';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8003';
 
 interface AuthState {
   token: string | null;
@@ -12,7 +13,7 @@ interface AuthState {
 
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>(() => {
-    const savedToken = localStorage.getItem(AUTH_TOKEN_KEY);
+    const savedToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
     return {
       token: savedToken,
       username: null, // Could parse from JWT if needed
@@ -27,8 +28,11 @@ export const useAuth = () => {
         password,
       });
 
-      const { access_token } = response.data;
-      localStorage.setItem(AUTH_TOKEN_KEY, access_token);
+      const { access_token, refresh_token } = response.data;
+      sessionStorage.setItem(AUTH_TOKEN_KEY, access_token);
+      if (refresh_token) {
+        sessionStorage.setItem(REFRESH_TOKEN_KEY, refresh_token);
+      }
       setAuthState({
         token: access_token,
         username,
@@ -49,8 +53,11 @@ export const useAuth = () => {
         password,
       });
 
-      const { access_token } = response.data;
-      localStorage.setItem(AUTH_TOKEN_KEY, access_token);
+      const { access_token, refresh_token } = response.data;
+      sessionStorage.setItem(AUTH_TOKEN_KEY, access_token);
+      if (refresh_token) {
+        sessionStorage.setItem(REFRESH_TOKEN_KEY, refresh_token);
+      }
       setAuthState({
         token: access_token,
         username,
@@ -63,8 +70,22 @@ export const useAuth = () => {
     }
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(AUTH_TOKEN_KEY);
+  const logout = useCallback(async () => {
+    const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+
+    // Call backend logout endpoint to revoke token
+    if (token) {
+      try {
+        await axios.post(`${API_BASE_URL}/auth/logout`, { token });
+      } catch (error) {
+        console.warn('Logout endpoint failed, continuing with local cleanup:', error);
+      }
+    }
+
+    // Clear tokens from sessionStorage
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+
     setAuthState({
       token: null,
       username: null,

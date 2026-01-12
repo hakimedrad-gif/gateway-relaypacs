@@ -2,7 +2,8 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
 
 from app.auth.dependencies import get_current_user, get_upload_token
 from app.dicom.service import dicom_service
@@ -16,6 +17,7 @@ from app.models.upload import (
 )
 from app.pacs.service import pacs_service
 from app.storage.service import storage_service
+from app.upload.analytics import export_stats_to_csv, generate_trend_data
 from app.upload.service import stats_manager, upload_manager
 
 router = APIRouter()
@@ -181,6 +183,63 @@ async def complete_upload(
             session.metadata.modality, session.metadata.service_level, status=status
         )
 
+    # Create report record and send notifications
+    user_id = token.get("user_id", "unknown")  # Get user_id from token
+
+    if processed_count > 0 and pacs_receipt_id:
+        try:
+            # Import needed modules
+            from app.database.reports_db import reports_db
+            from app.models.report import NotificationType, Report, ReportStatus
+            from app.notifications.service import notification_service
+
+            # Extract Study Instance UID from first DICOM file
+            study_uid = "UNKNOWN"
+            if merged_paths:
+                try:
+                    metadata = dicom_service.extract_metadata(merged_paths[0])
+                    study_uid = metadata.get("StudyInstanceUID", "UNKNOWN")
+                except Exception:
+                    pass
+
+            # Create report record
+            report = Report(
+                upload_id=upload_id,
+                study_instance_uid=study_uid,
+                status=ReportStatus.ASSIGNED,
+                user_id=user_id,
+            )
+            reports_db.create_report(report)
+
+            # Send success notification
+            await notification_service.create_and_broadcast(
+                user_id=user_id,
+                notification_type=NotificationType.UPLOAD_COMPLETE,
+                title="Upload Complete",
+                message=f"Study '{session.metadata.patient_name}' uploaded successfully and sent to PACS",
+                upload_id=upload_id,
+                report_id=report.id,
+            )
+        except Exception as e:
+            # Log error but don't fail the upload
+            warnings.append(f"Notification creation failed: {e!s}")
+
+    elif status == "failed":
+        # Send failure notification
+        try:
+            from app.models.report import NotificationType
+            from app.notifications.service import notification_service
+
+            await notification_service.create_and_broadcast(
+                user_id=user_id,
+                notification_type=NotificationType.UPLOAD_FAILED,
+                title="Upload Failed",
+                message=f"Upload for '{session.metadata.patient_name if session.metadata else 'Unknown'}' failed",
+                upload_id=upload_id,
+            )
+        except Exception as e:
+            warnings.append(f"Failure notification failed: {e!s}")
+
     # Always cleanup temp files after completion attempt
     await storage_service.cleanup_upload(str(upload_id))
 
@@ -234,3 +293,51 @@ async def get_status(
             for fid, data in session.files.items()
         },
     )
+
+
+@router.get("/stats/export")
+async def export_statistics(
+    period: str | None = None,
+    user: dict[str, Any] = Depends(get_current_user),
+) -> Response:
+    """
+    Export upload statistics as CSV file.
+
+    Returns CSV file for download with statistics breakdown.
+    """
+    # Get stats using existing stats_manager
+    stats_data = stats_manager.get_stats(period)
+
+    # Convert to CSV
+    csv_content = export_stats_to_csv(stats_data)
+
+    # Return as downloadable CSV
+    filename = f"relaypacs_stats_{period or 'all'}.csv"
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.get("/stats/trend")
+async def get_trend_data(
+    period: str = "7d",
+    user: dict[str, Any] = Depends(get_current_user),
+) -> dict[str, Any]:
+    """
+    Get trend data for time-series visualization.
+
+    Returns daily upload counts for the specified period.
+    """
+    # Get current stats
+    stats_data = stats_manager.get_stats(period)
+
+    # Generate trend data (currently mock, will be replaced with DB queries)
+    trend_data = generate_trend_data(stats_data, period)
+
+    return {
+        "period": period,
+        "data": trend_data,
+        "summary": stats_data,
+    }

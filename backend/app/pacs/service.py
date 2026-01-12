@@ -14,15 +14,21 @@ class PACSService:
 
     def __init__(self) -> None:
         # Initialize DICOMweb client using a session for auth
-
         session = requests.Session()
-        if settings.orthanc_username and settings.orthanc_password:
-            session.auth = requests.auth.HTTPBasicAuth(
-                settings.orthanc_username, settings.orthanc_password
-            )
+
+        if settings.pacs_type == "dcm4chee":
+            # dcm4chee usually uses its own stow url
+            stow_url = settings.dcm4chee_stow_url
+            # dcm4chee might have different auth, but for now we'll assume none or similar
+        else:
+            stow_url = settings.pacs_stow_url
+            if settings.orthanc_username and settings.orthanc_password:
+                session.auth = requests.auth.HTTPBasicAuth(
+                    settings.orthanc_username, settings.orthanc_password
+                )
 
         # The URL in config might be the full STOW URL,
-        base_url = settings.pacs_stow_url.replace("/studies", "")
+        base_url = stow_url.replace("/studies", "")
 
         self.client = DICOMwebClient(url=base_url, session=session)
 
