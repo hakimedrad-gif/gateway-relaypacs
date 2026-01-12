@@ -2,7 +2,8 @@
 
 import asyncio
 import json
-from typing import Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 from uuid import UUID
 
 from sse_starlette.sse import EventSourceResponse
@@ -14,19 +15,19 @@ from app.models.report import Notification, NotificationType
 class NotificationService:
     """Service for managing notifications and Server-Sent Events connections."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize notification service."""
         # Map user_id to asyncio.Queue for SSE connections
-        self._connections: dict[str, list[asyncio.Queue]] = {}
+        self._connections: dict[str, list[asyncio.Queue[dict[str, Any]]]] = {}
 
-    async def create_and_broadcast(
+    async def create_and_broadcast(  # noqa: PLR0913
         self,
         user_id: str,
         notification_type: NotificationType,
         title: str,
         message: str,
-        upload_id: Optional[UUID] = None,
-        report_id: Optional[UUID] = None,
+        upload_id: UUID | None = None,
+        report_id: UUID | None = None,
     ) -> Notification:
         """Create notification and broadcast to all user's SSE connections."""
         # Create notification in database
@@ -46,7 +47,7 @@ class NotificationService:
 
         return notification
 
-    async def _broadcast_to_user(self, user_id: str, notification: Notification):
+    async def _broadcast_to_user(self, user_id: str, notification: Notification) -> None:
         """Broadcast notification to all SSE connections for a user."""
         if user_id in self._connections:
             # Create notification event data
@@ -79,14 +80,14 @@ class NotificationService:
 
     async def subscribe_sse(self, user_id: str) -> EventSourceResponse:
         """Subscribe to SSE notifications for a user."""
-        queue: asyncio.Queue = asyncio.Queue()
+        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
 
         # Add queue to user's connections
         if user_id not in self._connections:
             self._connections[user_id] = []
         self._connections[user_id].append(queue)
 
-        async def event_generator():
+        async def event_generator() -> AsyncGenerator[dict[str, Any], None]:
             """Generate SSE events for this connection."""
             try:
                 # Send initial connection success event

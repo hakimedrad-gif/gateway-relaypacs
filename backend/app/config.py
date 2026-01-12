@@ -61,7 +61,7 @@ class Settings(BaseSettings):
 
     # Reports & Notifications
     reports_db_path: str = "data/reports.db"
-    pacs_poll_interval_seconds: int = 60  # Poll PACS for report updates
+    pacs_poll_interval_seconds: int = 10  # Poll PACS for report updates
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 

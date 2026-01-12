@@ -166,12 +166,13 @@ export const uploadApi = {
 };
 
 // Report types
-export const enum ReportStatus {
-  ASSIGNED = 'assigned',
-  PENDING = 'pending',
-  READY = 'ready',
-  ADDITIONAL_DATA_REQUIRED = 'additional_data_required',
-}
+export const ReportStatus = {
+  ASSIGNED: 'assigned',
+  PENDING: 'pending',
+  READY: 'ready',
+  ADDITIONAL_DATA_REQUIRED: 'additional_data_required',
+} as const;
+export type ReportStatus = (typeof ReportStatus)[keyof typeof ReportStatus];
 
 export interface Report {
   id: string;
@@ -192,13 +193,14 @@ export interface ReportListResponse {
 }
 
 // Notification types
-export const enum NotificationType {
-  UPLOAD_COMPLETE = 'upload_complete',
-  UPLOAD_FAILED = 'upload_failed',
-  REPORT_ASSIGNED = 'report_assigned',
-  REPORT_READY = 'report_ready',
-  ADDITIONAL_DATA_REQUIRED = 'additional_data_required',
-}
+export const NotificationType = {
+  UPLOAD_COMPLETE: 'upload_complete',
+  UPLOAD_FAILED: 'upload_failed',
+  REPORT_ASSIGNED: 'report_assigned',
+  REPORT_READY: 'report_ready',
+  ADDITIONAL_DATA_REQUIRED: 'additional_data_required',
+} as const;
+export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 
 export interface Notification {
   id: string;

@@ -2,7 +2,8 @@
 
 import asyncio
 import logging
-from typing import Optional
+from typing import Any
+from uuid import UUID
 
 from app.config import get_settings
 from app.database.reports_db import reports_db
@@ -16,12 +17,12 @@ settings = get_settings()
 class PACSReportSyncService:
     """Background service to sync report statuses from PACS server."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the PACS sync service."""
         self.running = False
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task[None] | None = None
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the background sync task."""
         if self.running:
             logger.warning("PACS sync service already running")
@@ -31,7 +32,7 @@ class PACSReportSyncService:
         self._task = asyncio.create_task(self._sync_loop())
         logger.info("PACS Report Sync Service started")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the background sync task."""
         if not self.running:
             return
@@ -45,7 +46,7 @@ class PACSReportSyncService:
                 pass
         logger.info("PACS Report Sync Service stopped")
 
-    async def _sync_loop(self):
+    async def _sync_loop(self) -> None:
         """Main sync loop - polls PACS for report updates."""
         while self.running:
             try:
@@ -59,22 +60,35 @@ class PACSReportSyncService:
                 # Continue despite errors
                 await asyncio.sleep(5)
 
-    async def _sync_all_pending_reports(self):
-        """Sync all reports that are not yet ready."""
-        # Get all reports that aren't in READY status
-        # For each report, query PACS for status updates
-        # This is a placeholder - actual implementation would query PACS
+    async def _sync_all_pending_reports(self) -> None:
+        """Sync all reports that are not yet ready (simulation)."""
+        for status in [ReportStatus.ASSIGNED, ReportStatus.PENDING]:
+            conn = reports_db._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM reports WHERE status = ?", (status.value,))
+            rows = cursor.fetchall()
+            conn.close()
 
-        # TODO: Implement actual PACS query using QIDO-RS
-        # Example PACS query flow:
-        # 1. Get all non-ready reports from database
-        # 2. For each report, query PACS using Study Instance UID
-        # 3. Check if report is available / status changed
-        # 4. Update report status and notify user if changed
+            for row in rows:
+                report_id = row["id"]
+                next_status = (
+                    ReportStatus.PENDING if status == ReportStatus.ASSIGNED else ReportStatus.READY
+                )
 
-        logger.debug("PACS sync check completed (placeholder)")
+                sim_data = {}
+                if next_status == ReportStatus.READY:
+                    sim_data = {
+                        "radiologist_name": "Dr. Simulated",
+                        "report_text": "Simulation: Normal findings. Test report.",
+                        "report_url": f"/api/reports/{report_id}/download",
+                    }
 
-    async def sync_report_by_study_uid(self, study_uid: str) -> Optional[dict]:
+                await self.update_report_status(report_id, next_status, sim_data)
+                logger.debug(f"Simulated status update for {report_id}: {status} -> {next_status}")
+
+        logger.debug("PACS sync simulation check completed")
+
+    async def sync_report_by_study_uid(self, study_uid: str) -> dict[str, Any] | None:
         """
         Query PACS for report status by Study Instance UID.
 
@@ -84,18 +98,15 @@ class PACSReportSyncService:
         Returns:
             dict with report info if found, None otherwise
         """
-        # TODO: Implement QIDO-RS query to PACS
-        # Example using dicomweb-client:
-        # - Query for Structured Reports (SR) by Study Instance UID
-        # - Parse SR documents to extract report text
-        # - Return report metadata
-
         # Placeholder response
         return None
 
     async def update_report_status(
-        self, report_id: str, new_status: ReportStatus, report_data: Optional[dict] = None
-    ):
+        self,
+        report_id: str,
+        new_status: ReportStatus,
+        report_data: dict[str, Any] | None = None,
+    ) -> None:
         """
         Update report status and send notification.
 
@@ -106,8 +117,6 @@ class PACSReportSyncService:
         """
         try:
             # Get current report
-            from uuid import UUID
-
             report = reports_db.get_report_by_id(UUID(report_id))
             if not report:
                 logger.error(f"Report {report_id} not found")
@@ -118,7 +127,7 @@ class PACSReportSyncService:
                 return
 
             # Update report
-            updated_report = reports_db.update_report_status(
+            reports_db.update_report_status(
                 UUID(report_id),
                 new_status,
                 report_url=report_data.get("report_url") if report_data else None,
@@ -133,16 +142,15 @@ class PACSReportSyncService:
             title = ""
             message = ""
 
+            short_uid = report.study_instance_uid[:20]
             if new_status == ReportStatus.READY:
                 notification_type = NotificationType.REPORT_READY
                 title = "Report Ready"
-                message = f"Your radiology report for study {report.study_instance_uid[:20]}... is now available"
+                message = f"Your radiology report for study {short_uid}... is now available"
             elif new_status == ReportStatus.ADDITIONAL_DATA_REQUIRED:
                 notification_type = NotificationType.ADDITIONAL_DATA_REQUIRED
                 title = "Additional Data Required"
-                message = (
-                    f"Additional information needed for study {report.study_instance_uid[:20]}..."
-                )
+                message = f"Additional information needed for study {short_uid}..."
 
             if notification_type:
                 await notification_service.create_and_broadcast(

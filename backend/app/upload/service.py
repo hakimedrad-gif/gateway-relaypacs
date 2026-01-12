@@ -17,12 +17,14 @@ class UploadSession:
     def __init__(  # noqa: PLR0913
         self,
         upload_id: str,
+        user_id: str,
         total_files: int,
         total_size_bytes: int,
         metadata: StudyMetadata,
         clinical_history: str | None = None,
     ) -> None:
         self.upload_id = upload_id
+        self.user_id = user_id
         self.metadata = metadata
         self.clinical_history = clinical_history
         self.total_files = total_files
@@ -57,6 +59,7 @@ class UploadManager:
         """Persist session state to disk"""
         data = {
             "upload_id": session.upload_id,
+            "user_id": session.user_id,
             "metadata": session.metadata.model_dump(),
             "clinical_history": session.clinical_history,
             "total_files": session.total_files,
@@ -83,6 +86,7 @@ class UploadManager:
                 meta = StudyMetadata(**data["metadata"])
                 session = UploadSession(
                     data["upload_id"],
+                    data.get("user_id", "unknown"),
                     data["total_files"],
                     data["total_size_bytes"],
                     meta,
@@ -106,19 +110,22 @@ class UploadManager:
             except Exception as e:
                 print(f"Failed to load session {session_file}: {e}")
 
-    async def create_session(
+    async def create_session(  # noqa: PLR0913
         self,
+        user_id: str,
         metadata: StudyMetadata,
         total_files: int,
         total_size: int,
         clinical_history: str | None = None,
     ) -> UploadInitResponse:
         upload_id = uuid4()
-        session = UploadSession(str(upload_id), total_files, total_size, metadata, clinical_history)
+        session = UploadSession(
+            str(upload_id), user_id, total_files, total_size, metadata, clinical_history
+        )
         self._sessions[str(upload_id)] = session
         self._save_session(session)
 
-        token = create_upload_token(str(upload_id))
+        token = create_upload_token(str(upload_id), user_id)
 
         return UploadInitResponse(
             upload_id=upload_id,
