@@ -33,6 +33,7 @@ async def initialize_upload(
     await upload_manager.cleanup_expired_sessions(storage_service)
 
     return await upload_manager.create_session(
+        user["sub"],
         payload.study_metadata,
         payload.total_files,
         payload.total_size_bytes,
@@ -115,7 +116,7 @@ async def upload_chunk(
 
 @router.post("/{upload_id}/complete", response_model=UploadCompleteResponse)
 @limiter.limit("10/minute")
-async def complete_upload(
+async def complete_upload(  # noqa: PLR0912, PLR0915
     request: Request, upload_id: UUID, token: dict[str, Any] = Depends(get_upload_token)
 ) -> UploadCompleteResponse:
     """
@@ -212,11 +213,12 @@ async def complete_upload(
             reports_db.create_report(report)
 
             # Send success notification
+            msg = f"Study '{session.metadata.patient_name}' uploaded successfully"
             await notification_service.create_and_broadcast(
                 user_id=user_id,
                 notification_type=NotificationType.UPLOAD_COMPLETE,
                 title="Upload Complete",
-                message=f"Study '{session.metadata.patient_name}' uploaded successfully and sent to PACS",
+                message=f"{msg} and sent to PACS",
                 upload_id=upload_id,
                 report_id=report.id,
             )
@@ -230,11 +232,12 @@ async def complete_upload(
             from app.models.report import NotificationType
             from app.notifications.service import notification_service
 
+            pat_name = session.metadata.patient_name if session.metadata else "Unknown"
             await notification_service.create_and_broadcast(
                 user_id=user_id,
                 notification_type=NotificationType.UPLOAD_FAILED,
                 title="Upload Failed",
-                message=f"Upload for '{session.metadata.patient_name if session.metadata else 'Unknown'}' failed",
+                message=f"Upload for '{pat_name}' failed",
                 upload_id=upload_id,
             )
         except Exception as e:

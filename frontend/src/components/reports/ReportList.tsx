@@ -14,10 +14,6 @@ const ReportList: React.FC = () => {
   const [filter, setFilter] = useState<string>('all');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchReports();
-  }, [filter, fetchReports]);
-
   const fetchReports = useCallback(async () => {
     try {
       setLoading(true);
@@ -30,6 +26,10 @@ const ReportList: React.FC = () => {
       setLoading(false);
     }
   }, [filter]);
+
+  useEffect(() => {
+    fetchReports();
+  }, [filter, fetchReports]);
 
   const handleView = (reportId: string) => {
     navigate(`/reports/${reportId}`);

@@ -3,7 +3,7 @@
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, cast
 from uuid import UUID
 
 from app.models.report import Notification, NotificationType, Report, ReportStatus
@@ -111,7 +111,7 @@ class ReportsDatabase:
         conn.close()
         return report
 
-    def get_report_by_id(self, report_id: UUID) -> Optional[Report]:
+    def get_report_by_id(self, report_id: UUID) -> Report | None:
         """Get report by ID."""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -124,7 +124,7 @@ class ReportsDatabase:
             return self._row_to_report(row)
         return None
 
-    def get_report_by_upload_id(self, upload_id: UUID) -> Optional[Report]:
+    def get_report_by_upload_id(self, upload_id: UUID) -> Report | None:
         """Get report by upload ID."""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -140,7 +140,7 @@ class ReportsDatabase:
     def get_reports_by_user(
         self,
         user_id: str,
-        status: Optional[ReportStatus] = None,
+        status: ReportStatus | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[Report]:
@@ -174,20 +174,20 @@ class ReportsDatabase:
 
         return [self._row_to_report(row) for row in rows]
 
-    def update_report_status(
+    def update_report_status(  # noqa: PLR0913
         self,
         report_id: UUID,
         status: ReportStatus,
-        report_url: Optional[str] = None,
-        radiologist_name: Optional[str] = None,
-        report_text: Optional[str] = None,
-    ) -> Optional[Report]:
+        report_url: str | None = None,
+        radiologist_name: str | None = None,
+        report_text: str | None = None,
+    ) -> Report | None:
         """Update report status and optional fields."""
         conn = self._get_connection()
         cursor = conn.cursor()
 
         update_fields = ["status = ?", "updated_at = ?"]
-        params = [status.value, datetime.utcnow().isoformat()]
+        params: list[Any] = [status.value, datetime.utcnow().isoformat()]
 
         if report_url is not None:
             update_fields.append("report_url = ?")
@@ -329,7 +329,7 @@ class ReportsDatabase:
 
         count = cursor.fetchone()[0]
         conn.close()
-        return count
+        return cast(int, count)
 
     def _row_to_notification(self, row: sqlite3.Row) -> Notification:
         """Convert database row to Notification model."""
