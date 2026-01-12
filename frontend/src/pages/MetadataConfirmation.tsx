@@ -20,6 +20,8 @@ export const MetadataConfirmation: React.FC = () => {
     clinicalHistory: '',
   });
 
+  const [errors, setErrors] = useState<{ age?: string; clinicalHistory?: string }>({});
+
   // Load initial data
   React.useEffect(() => {
     if (study) {
@@ -56,6 +58,37 @@ export const MetadataConfirmation: React.FC = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
+
+  // Validation helpers
+  const validateAge = (age: string): string | undefined => {
+    if (!age) return 'Age is required';
+    // Format: numbers followed by Y/M/D/W (e.g., "45Y", "6M", "2W")
+    const ageRegex = /^\d+[YMDW]$/i;
+    if (!ageRegex.test(age)) {
+      return 'Age format: e.g., 45Y, 6M, 2W, 10D';
+    }
+    return undefined;
+  };
+
+  const validateClinicalHistory = (history: string): string | undefined => {
+    if (!history || history.trim().length === 0) return 'Clinical history is required';
+    if (history.length > 500) return 'Clinical history must be 500 characters or less';
+    return undefined;
+  };
+
+  // Validate on change
+  React.useEffect(() => {
+    const newErrors: { age?: string; clinicalHistory?: string } = {};
+    const ageError = validateAge(formData.age);
+    const historyError = validateClinicalHistory(formData.clinicalHistory);
+    if (ageError) newErrors.age = ageError;
+    if (historyError) newErrors.clinicalHistory = historyError;
+    setErrors(newErrors);
+  }, [formData.age, formData.clinicalHistory]);
+
+  // Check if form is valid
+  const isFormValid =
+    formData.age && formData.gender && formData.clinicalHistory && Object.keys(errors).length === 0;
 
   const handleConfirm = async () => {
     if (!study) return;
@@ -145,26 +178,33 @@ export const MetadataConfirmation: React.FC = () => {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label htmlFor="age" className="block text-sm font-medium text-slate-300 mb-1">
-              Age (Confirm)
+              Age (Confirm) <span className="text-red-400">*</span>
             </label>
             <input
               id="age"
               type="text"
               value={formData.age}
               onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="e.g. 45Y"
+              className={`w-full bg-slate-900 border rounded-lg p-3 text-white focus:ring-2 outline-none ${
+                errors.age
+                  ? 'border-red-500 focus:ring-red-500'
+                  : 'border-slate-700 focus:ring-blue-500'
+              }`}
+              placeholder="e.g. 45Y, 6M, 2W"
             />
+            {errors.age && <p className="text-red-400 text-xs mt-1">{errors.age}</p>}
           </div>
           <div>
             <label htmlFor="gender" className="block text-sm font-medium text-slate-300 mb-1">
-              Gender (Confirm)
+              Gender (Confirm) <span className="text-red-400">*</span>
             </label>
             <select
               id="gender"
               value={formData.gender}
               onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
+              className={`w-full bg-slate-900 border rounded-lg p-3 text-white focus:ring-2 outline-none ${
+                !formData.gender ? 'border-red-500/50' : 'border-slate-700 focus:ring-blue-500'
+              }`}
             >
               <option value="">Select Gender</option>
               <option value="M">Male (M)</option>
@@ -175,33 +215,45 @@ export const MetadataConfirmation: React.FC = () => {
         </div>
 
         <div>
-          <label
-            htmlFor="clinicalHistory"
-            className="block text-sm font-medium text-slate-300 mb-1"
-          >
-            Clinical History
-          </label>
+          <div className="flex justify-between items-center mb-1">
+            <label htmlFor="clinicalHistory" className="block text-sm font-medium text-slate-300">
+              Clinical History <span className="text-red-400">*</span>
+            </label>
+            <span className="text-xs text-slate-500">{formData.clinicalHistory.length}/500</span>
+          </div>
           <textarea
             id="clinicalHistory"
-            rows={2}
+            rows={3}
+            maxLength={500}
             value={formData.clinicalHistory}
             onChange={(e) => setFormData({ ...formData, clinicalHistory: e.target.value })}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-            placeholder="Reason for study, symptoms, etc..."
+            className={`w-full bg-slate-900 border rounded-lg p-4 text-white focus:ring-2 outline-none transition-all ${
+              errors.clinicalHistory
+                ? 'border-red-500 focus:ring-red-500'
+                : 'border-slate-700 focus:ring-blue-500'
+            }`}
+            placeholder="Reason for study, symptoms, previous relevant history..."
           />
+          {errors.clinicalHistory && (
+            <p className="text-red-400 text-xs mt-1">{errors.clinicalHistory}</p>
+          )}
         </div>
 
         <div>
-          <label htmlFor="clinicalNotes" className="block text-sm font-medium text-slate-300 mb-1">
-            Additional Notes
-          </label>
+          <div className="flex justify-between items-center mb-1">
+            <label htmlFor="clinicalNotes" className="block text-sm font-medium text-slate-300">
+              Additional Notes
+            </label>
+            <span className="text-xs text-slate-500">{formData.clinicalNotes.length}/200</span>
+          </div>
           <textarea
             id="clinicalNotes"
             rows={2}
+            maxLength={200}
             value={formData.clinicalNotes}
             onChange={(e) => setFormData({ ...formData, clinicalNotes: e.target.value })}
             className="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-            placeholder="Enter clinical impression or notes..."
+            placeholder="Clinical impression, additional observations..."
           />
         </div>
       </div>
@@ -215,7 +267,12 @@ export const MetadataConfirmation: React.FC = () => {
         </button>
         <button
           onClick={handleConfirm}
-          className="flex-1 py-4 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-lg shadow-blue-900/50 transition-all active:scale-95 text-lg min-h-[44px]"
+          disabled={!isFormValid}
+          className={`flex-1 py-4 px-4 text-white font-bold rounded-lg shadow-lg transition-all text-lg min-h-[44px] ${
+            isFormValid
+              ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/50 active:scale-95'
+              : 'bg-slate-600 cursor-not-allowed opacity-50'
+          }`}
         >
           Confirm & Upload
         </button>

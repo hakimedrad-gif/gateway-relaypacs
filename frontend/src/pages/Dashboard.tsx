@@ -1,12 +1,16 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { uploadApi } from '../services/api';
 import type { UploadStats } from '../services/api';
+import { TrendChart } from '../components/TrendChart';
+import { ExportButton } from '../components/ExportButton';
 
 export const Dashboard: React.FC = () => {
   const [stats, setStats] = useState<UploadStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<string>('all');
+  const [trendData, setTrendData] = useState<Array<{ date: string; count: number }>>([]);
+  const [exportLoading, setExportLoading] = useState(false);
 
   const fetchStats = useCallback(
     async (selectedPeriod = period) => {
@@ -29,10 +33,33 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchStats();
+    // Fetch trend data for chart
+    uploadApi
+      .getTrendData('7d')
+      .then((res) => setTrendData(res.data))
+      .catch(console.error);
     // Refresh stats every 30 seconds
     const interval = setInterval(() => fetchStats(period), 30000);
     return () => clearInterval(interval);
   }, [fetchStats, period]);
+
+  const handleExport = async () => {
+    try {
+      setExportLoading(true);
+      const blob = await uploadApi.exportStatsCSV(period === 'all' ? undefined : period);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `relaypacs_stats_${period}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Failed to export statistics');
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
   const modalityLabels: Record<string, string> = {
     cr: 'Radiograph/X-ray',
@@ -89,6 +116,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <ExportButton onExport={handleExport} loading={exportLoading} />
           <div className="text-right hidden sm:block">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
               Last Synced
@@ -119,6 +147,9 @@ export const Dashboard: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Trend Chart */}
+      {trendData.length > 0 && <TrendChart data={trendData} period="7d" />}
 
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 font-bold text-sm flex items-center gap-3">

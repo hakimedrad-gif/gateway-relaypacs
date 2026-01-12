@@ -10,6 +10,12 @@ pydantic-settings==2.12.0
 python-dotenv==1.2.1
 slowapi==0.1.9
 
+# Database
+sqlalchemy==2.0.36
+alembic==1.14.0
+psycopg2-binary==2.9.10
+asyncpg==0.30.0
+
 # DICOM Processing
 pydicom==3.0.1
 dicomweb-client==0.60.1
@@ -29,3 +35,5 @@ httpx==0.28.1
 ruff==0.14.11
 black==25.12.0
 mypy==1.19.1
+reportlab==4.2.5
+sse-starlette==2.2.1

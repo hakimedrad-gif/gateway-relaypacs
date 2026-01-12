@@ -5,26 +5,31 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8001:8000"
+      - "8003:8003"
     volumes:
       - ./backend:/app
     environment:
       - DEBUG=true
       - S3_ENDPOINT=http://minio:9000
+      - USE_S3=true
       - ORTHANC_URL=http://orthanc:8042
+      - DCM4CHEE_STOW_URL=http://dcm4chee:8080/dcm4chee-arc/aets/DCM4CHEE/rs/studies
+      - PACS_TYPE=dcm4chee
+      - API_PORT=8003
+      - CORS_ORIGINS=["http://localhost:3002","http://10.10.20.50:3002"]
     depends_on:
       - minio
       - orthanc
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8003 --reload
 
-  # Frontend React SPA (Nginx)
+  # Frontend (Nginx Production Build)
   frontend:
     build:
       context: ./frontend
       args:
-        - VITE_API_URL=http://localhost:8001
+        - VITE_API_URL=http://localhost:8003
     ports:
-      - "8081:80"
+      - "3002:80"
     depends_on:
       - backend
 
@@ -50,8 +55,8 @@ services:
   orthanc:
     image: jodogne/orthanc-plugins:latest
     ports:
-      - "8042:8042"
-      - "4242:4242"
+      - "8045:8042"
+      - "4245:4242"
     environment:
       - ORTHANC__NAME=RelayPACS-Orthanc
       - ORTHANC__AUTHENTICATION_ENABLED=true
@@ -60,6 +65,63 @@ services:
     volumes:
       - orthanc_data:/var/lib/orthanc/db
 
+  # dcm4che (dcm4chee-arc-light)
+  ldap:
+    image: dcm4che/slapd-dcm4chee:2.6.10-34.2
+    ports:
+      - "389:389"
+    environment:
+      - LDAP_BASE_DN=dc=dcm4che,dc=org
+      - LDAP_ORGANIZATION=dcm4che.org
+      - LDAP_ADMIN_PASSWORD=admin
+      - LDAP_CONFIG_PASSWORD=config
+    volumes:
+      - ldap_data:/var/lib/ldap
+      - ldap_config:/etc/ldap/slapd.d
+
+  db:
+    image: dcm4che/postgres-dcm4chee:16.8-34
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_DB=pacsdb
+      - POSTGRES_USER=pacs
+      - POSTGRES_PASSWORD=pacs
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  dcm4chee:
+    image: dcm4che/dcm4chee-arc-psql:5.34.2
+    ports:
+      - "8081:8080"
+      - "11113:11112"
+      - "2576:2575"
+    environment:
+      - LDAP_URL=ldap://ldap:389
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=pacsdb
+      - DB_USER=pacs
+      - DB_PASSWORD=pacs
+      - AUTH_SERVER_URL=http://dcm4chee:8081/auth
+    depends_on:
+      - ldap
+      - db
+
+  # Lightweight dcm4che toolkit server (Ubuntu 24.04 based)
+  dcm4che_toolkit:
+    build:
+      context: ./backend
+      dockerfile: dcm4che.Dockerfile
+    ports:
+      - "11114:11112"
+    volumes:
+      - dcm4che_data:/var/local/dcm4che/data
+
 volumes:
   minio_data:
   orthanc_data:
+  ldap_data:
+  ldap_config:
+  db_data:
+  dcm4che_data:

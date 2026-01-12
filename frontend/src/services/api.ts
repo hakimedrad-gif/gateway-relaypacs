@@ -70,7 +70,10 @@ export interface UploadStats {
 }
 
 export const uploadApi = {
-  login: async (username: string, password: string): Promise<{ access_token: string }> => {
+  login: async (
+    username: string,
+    password: string,
+  ): Promise<{ access_token: string; refresh_token?: string }> => {
     const response = await api.post('/auth/login', { username, password });
     return response.data;
   },
@@ -140,5 +143,184 @@ export const uploadApi = {
   getStats: async (period?: string): Promise<UploadStats> => {
     const response = await api.get('/upload/stats', { params: { period } });
     return response.data;
+  },
+
+  getTrendData: async (
+    period: string = '7d',
+  ): Promise<{
+    period: string;
+    data: Array<{ date: string; count: number }>;
+    summary: UploadStats;
+  }> => {
+    const response = await api.get('/upload/stats/trend', { params: { period } });
+    return response.data;
+  },
+
+  exportStatsCSV: async (period?: string): Promise<Blob> => {
+    const response = await api.get('/upload/stats/export', {
+      params: { period },
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+};
+
+// Report types
+export const enum ReportStatus {
+  ASSIGNED = 'assigned',
+  PENDING = 'pending',
+  READY = 'ready',
+  ADDITIONAL_DATA_REQUIRED = 'additional_data_required',
+}
+
+export interface Report {
+  id: string;
+  upload_id: string;
+  study_instance_uid: string;
+  status: ReportStatus;
+  radiologist_name?: string;
+  report_text?: string;
+  report_url?: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReportListResponse {
+  reports: Report[];
+  total: number;
+}
+
+// Notification types
+export const enum NotificationType {
+  UPLOAD_COMPLETE = 'upload_complete',
+  UPLOAD_FAILED = 'upload_failed',
+  REPORT_ASSIGNED = 'report_assigned',
+  REPORT_READY = 'report_ready',
+  ADDITIONAL_DATA_REQUIRED = 'additional_data_required',
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  notification_type: NotificationType;
+  title: string;
+  message: string;
+  related_upload_id?: string;
+  related_report_id?: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationListResponse {
+  notifications: Notification[];
+  unread_count: number;
+  total: number;
+}
+
+// Reports API
+export const reportApi = {
+  listReports: async (
+    status?: string,
+    limit: number = 50,
+    offset: number = 0,
+  ): Promise<ReportListResponse> => {
+    const response = await api.get('/reports/', {
+      params: { status, limit, offset },
+    });
+    return response.data;
+  },
+
+  getReport: async (reportId: string): Promise<Report> => {
+    const response = await api.get(`/reports/${reportId}`);
+    return response.data;
+  },
+
+  getReportByUpload: async (uploadId: string): Promise<Report | null> => {
+    const response = await api.get(`/reports/upload/${uploadId}`);
+    return response.data;
+  },
+
+  downloadReport: async (reportId: string): Promise<Blob> => {
+    const response = await api.get(`/reports/${reportId}/download`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  syncReport: async (reportId: string): Promise<Report> => {
+    const response = await api.post(`/reports/${reportId}/sync`);
+    return response.data;
+  },
+};
+
+// Notifications API
+export const notificationApi = {
+  listNotifications: async (
+    limit: number = 50,
+    offset: number = 0,
+    unreadOnly: boolean = false,
+  ): Promise<NotificationListResponse> => {
+    const response = await api.get('/notifications/', {
+      params: { limit, offset, unread_only: unreadOnly },
+    });
+    return response.data;
+  },
+
+  markAsRead: async (notificationId: string): Promise<void> => {
+    await api.patch(`/notifications/${notificationId}/read`);
+  },
+
+  markAllAsRead: async (): Promise<{ count: number }> => {
+    const response = await api.patch('/notifications/read-all');
+    return response.data;
+  },
+
+  /**
+   * Connect to Server-Sent Events (SSE) stream for real-time notifications
+   * @param onNotification Callback when a new notification arrives
+   * @param onUnreadCount Callback when unread count is received
+   * @returns EventSource instance
+   */
+  connectSSE: (
+    onNotification: (notification: Notification) => void,
+    onUnreadCount?: (count: number) => void,
+  ): EventSource => {
+    // Get auth token from api defaults
+    const token = api.defaults.headers.common['Authorization']?.toString().replace('Bearer ', '');
+
+    if (!token) {
+      throw new Error('No auth token available for SSE connection');
+    }
+
+    // EventSource doesn't support headers, so we pass token as query param
+    const eventSource = new EventSource(`${API_URL}/notifications/stream?token=${token}`);
+
+    eventSource.addEventListener('notification', (event) => {
+      const data = JSON.parse(event.data);
+      onNotification(data as Notification);
+    });
+
+    eventSource.addEventListener('unread_count', (event) => {
+      const data = JSON.parse(event.data);
+      if (onUnreadCount) {
+        onUnreadCount(data.count);
+      }
+    });
+
+    eventSource.addEventListener('connected', (event) => {
+      console.log('SSE connected:', event.data);
+    });
+
+    eventSource.addEventListener('heartbeat', () => {
+      // Keep-alive heartbeat, no action needed
+    });
+
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error);
+      // EventSource will automatically reconnect
+    };
+
+    return eventSource;
   },
 };

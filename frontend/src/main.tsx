@@ -58,6 +58,8 @@ const ProgressGuard = () => {
 };
 
 import { Dashboard } from './pages/Dashboard';
+import Reports from './pages/Reports';
+import Notifications from './pages/Notifications';
 
 const router = createBrowserRouter([
   {
@@ -79,6 +81,14 @@ const router = createBrowserRouter([
       {
         path: 'dashboard',
         element: <Dashboard />,
+      },
+      {
+        path: 'reports',
+        element: <Reports />,
+      },
+      {
+        path: 'notifications',
+        element: <Notifications />,
       },
       {
         path: 'metadata/:studyId',
