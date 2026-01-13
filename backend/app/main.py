@@ -19,28 +19,58 @@ from app.upload.router import router as upload_router
 
 settings = get_settings()
 
-# Initialize Sentry for error monitoring (if configured)
-if settings.sentry_dsn:
-    import sentry_sdk
-    from sentry_sdk.integrations.fastapi import FastApiIntegration
-    from sentry_sdk.integrations.starlette import StarletteIntegration
+from contextlib import asynccontextmanager
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from app.tasks.cleanup import cleanup_orphaned_uploads
 
-    sentry_sdk.init(
-        dsn=settings.sentry_dsn,
-        environment=settings.sentry_environment,
-        traces_sample_rate=settings.sentry_traces_sample_rate,
-        integrations=[
-            StarletteIntegration(transaction_style="endpoint"),
-            FastApiIntegration(transaction_style="endpoint"),
-        ],
-        send_default_pii=False,  # Don't send PII by default
-    )
-    print(f"✓ Sentry initialized for {settings.sentry_environment} environment")
+# Initialize scheduler
+scheduler = AsyncIOScheduler()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup:
+    # 1. Initialize Sentry
+    if settings.sentry_dsn:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.starlette import StarletteIntegration
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            environment=settings.sentry_environment,
+            traces_sample_rate=settings.sentry_traces_sample_rate,
+            integrations=[
+                StarletteIntegration(transaction_style="endpoint"),
+                FastApiIntegration(transaction_style="endpoint"),
+            ],
+            send_default_pii=False,
+        )
+        print(f"✓ Sentry initialized for {settings.sentry_environment} environment")
+    
+    # 2. Start scheduler
+    scheduler.add_job(cleanup_orphaned_uploads, 'cron', hour=2, minute=0)  # Run at 2 AM
+    scheduler.start()
+    print("✓ Scheduler started with cleanup task")
+    
+    # 3. Initialize reports database and start PACS sync
+    from app.reports.pacs_sync import pacs_sync_service
+    await pacs_sync_service.start()
+    print("✓ PACS Report Sync Service started")
+    
+    yield
+    
+    # Shutdown:
+    # 1. Stop scheduler
+    scheduler.shutdown()
+    
+    # 2. Stop PACS sync
+    await pacs_sync_service.stop()
+    print("✓ Services stopped")
 
 app = FastAPI(
     title="RelayPACS API",
     description="Mobile-first DICOM ingestion node for teleradiology",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Security headers middleware (add first for all responses)

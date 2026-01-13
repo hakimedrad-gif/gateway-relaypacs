@@ -49,3 +49,4 @@ sentry-sdk[fastapi]==2.25.1
 
 # Monitoring/Metrics
 prometheus-fastapi-instrumentator==7.0.0
+apscheduler==3.10.4
