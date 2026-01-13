@@ -1,9 +1,10 @@
 """Pydantic models for User API contracts."""
 
+import re
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserBase(BaseModel):
@@ -18,7 +19,41 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Schema for user registration."""
 
-    password: str = Field(..., min_length=8, max_length=128)
+    password: str = Field(
+        ...,
+        min_length=12,
+        max_length=128,
+        description="Password must be at least 12 characters with uppercase, lowercase, digit, and special character"
+    )
+    
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        """
+        Enforce strong password requirements to prevent account compromise.
+        
+        Requirements:
+        - Minimum 12 characters (already enforced by Field)
+        - At least one uppercase letter
+        - At least one lowercase letter
+        - At least one digit
+        - At least one special character
+        """
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter (A-Z)")
+        
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter (a-z)")
+        
+        if not re.search(r"[0-9]", v):
+            raise ValueError("Password must contain at least one digit (0-9)")
+        
+        if not re.search(r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>/?]", v):
+            raise ValueError(
+                "Password must contain at least one special character (!@#$%^&*()_+-=[]{}etc.)"
+            )
+        
+        return v
 
 
 class UserLogin(BaseModel):

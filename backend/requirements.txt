@@ -14,6 +14,7 @@ asyncpg
 pyotp
 qrcode
 redis
+tenacity==8.2.3  # For retry logic with exponential backoff
 
 # Database
 sqlalchemy==2.0.36
