@@ -1,3 +1,4 @@
+import hashlib
 import shutil
 from pathlib import Path
 
@@ -5,6 +6,7 @@ import boto3
 from botocore.exceptions import ClientError
 
 from app.config import get_settings
+from app.exceptions import ChunkUploadError
 
 settings = get_settings()
 
@@ -15,7 +17,21 @@ class BaseStorageService:
     ) -> str:
         raise NotImplementedError()
 
-    async def merge_chunks(self, upload_id: str, file_id: str, total_chunks: int) -> Path | str:
+    async def merge_chunks(
+        self, upload_id: str, file_id: str, total_chunks: int, checksums: dict[int, str] | None = None
+    ) -> Path | str:
+        """
+        Merge chunks into final file.
+        
+        Args:
+            upload_id: Upload session ID
+            file_id: File identifier
+            total_chunks: Total number of chunks
+            checksums: Optional dict mapping chunk_index to expected MD5 checksum
+        
+        Raises:
+            ChunkUploadError: If checksum validation fails
+        """
         raise NotImplementedError()
 
     async def cleanup_upload(self, upload_id: str) -> None:
@@ -29,7 +45,7 @@ class BaseStorageService:
     ) -> bool:
         """
         Verify chunk was written correctly by checking its size.
-        
+
         This prevents silent data loss when chunk write fails mid-operation.
         Returns True if chunk exists and has correct size, False otherwise.
         """
@@ -60,27 +76,48 @@ class LocalStorageService(BaseStorageService):
     ) -> bool:
         """
         Verify chunk exists and has the correct size.
-        
+
         Prevents silent data corruption from partial writes.
         """
         chunk_path = self.base_path / str(upload_id) / str(file_id) / f"{chunk_index}.part"
-        
+
         if not chunk_path.exists():
             return False
-        
+
         actual_size = chunk_path.stat().st_size
         return actual_size == expected_size
 
-    async def merge_chunks(self, upload_id: str, file_id: str, total_chunks: int) -> Path:
+    async def merge_chunks(
+        self, upload_id: str, file_id: str, total_chunks: int, checksums: dict[int, str] | None = None
+    ) -> Path:
+        """Merge chunks with optional checksum validation."""
         file_dir = self.base_path / str(upload_id) / str(file_id)
         final_path = file_dir / "final_file"
+        
         with open(final_path, "wb") as outfile:
             for i in range(total_chunks):
                 chunk_path = file_dir / f"{i}.part"
                 if not chunk_path.exists():
                     raise FileNotFoundError(f"Missing chunk {i} for file {file_id}")
+                
+                # Read chunk data
                 with open(chunk_path, "rb") as infile:
-                    outfile.write(infile.read())
+                    chunk_data = infile.read()
+                
+                # Validate checksum if provided
+                if checksums and i in checksums:
+                    actual_checksum = hashlib.md5(chunk_data).hexdigest()
+                    expected_checksum = checksums[i]
+                    if actual_checksum != expected_checksum:
+                        raise ChunkUploadError(
+                            f"Chunk {i} checksum mismatch! "
+                            f"Expected: {expected_checksum}, Got: {actual_checksum}. "
+                            f"File may be corrupted."
+                        )
+                
+                # Write chunk to final file
+                outfile.write(chunk_data)
+        
         return final_path
 
     async def cleanup_upload(self, upload_id: str) -> None:
@@ -120,7 +157,7 @@ class S3StorageService(BaseStorageService):
     ) -> bool:
         """
         Verify S3 chunk exists and has correct size.
-        
+
         Uses HEAD request to check object metadata without downloading.
         """
         key = f"{upload_id}/{file_id}/chunks/{chunk_index}.part"

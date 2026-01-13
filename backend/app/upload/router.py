@@ -184,7 +184,14 @@ async def complete_upload(  # noqa: PLR0912, PLR0915
         try:
             # Get total chunks for this file (highest index + 1)
             total_chunks = max(file_data["chunks"]) + 1
-            final_path = await storage_service.merge_chunks(str(upload_id), file_id, total_chunks)
+            
+            # Get checksums for validation (if available)
+            checksums = file_data.get("checksums", {})
+            
+            # Merge chunks with checksum validation
+            final_path = await storage_service.merge_chunks(
+                str(upload_id), file_id, total_chunks, checksums
+            )
 
             # 2. Validate DICOMs (Safe mode by default)
             dicom_service.extract_metadata(final_path)
