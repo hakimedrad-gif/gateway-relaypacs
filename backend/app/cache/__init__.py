@@ -1,0 +1,4 @@
+"""Cache package."""
+from .service import cache_service
+
+__all__ = ["cache_service"]

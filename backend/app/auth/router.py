@@ -41,6 +41,22 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)) -> TokenP
                 detail="User account is disabled",
             )
 
+        # check for 2FA
+        if user.totp_enabled:
+            if not credentials.totp_code:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="TOTP code required",
+                    headers={"X-TOTP-Required": "true"},
+                )
+            
+            from app.auth.totp import totp_service
+            if not totp_service.verify_totp(user.totp_secret, credentials.totp_code):
+                 raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid TOTP code",
+                )
+
         access_token = create_access_token(data={"sub": username})
         refresh_token = create_refresh_token(data={"sub": username})
         return TokenPair(access_token=access_token, refresh_token=refresh_token)

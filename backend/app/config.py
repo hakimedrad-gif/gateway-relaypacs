@@ -14,11 +14,14 @@ class Settings(BaseSettings):
     app_name: str = "RelayPACS"
     debug: bool = False
 
-    # Security
-    secret_key: str = "your-secret-key-change-in-production"
+    # Security - REQUIRED from environment
+    secret_key: str  # Must be set in .env file
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     upload_token_expire_minutes: int = 30
+    
+    # DICOM Identity (Client Node AET)
+    ae_title: str = "RELAYPACS"
 
     # Database
     database_url: str = (
@@ -44,24 +47,35 @@ class Settings(BaseSettings):
     s3_bucket: str = "relay-pacs-uploads"
     s3_region: str = "us-east-1"
 
-    # PACS
-    pacs_type: str = "orthanc"  # 'orthanc' or 'dcm4chee'
-    pacs_stow_url: str = "http://localhost:8042/dicom-web/studies"
-    pacs_auth_type: str = "basic"
+    # PACS - Orthanc
     orthanc_url: str = "http://localhost:8042"
+    orthanc_wado_url: str = "http://localhost:8042/dicom-web"
     orthanc_username: str = "orthanc"
     orthanc_password: str = "orthanc"
 
-    # dcm4chee specific
-    dcm4chee_stow_url: str = "http://localhost:8081/dcm4chee-arc/aets/DCM4CHEE/rs/studies"
+    # PACS - dcm4che
+    dcm4chee_url: str = "http://localhost:8081/dcm4chee-arc/aets/DCM4CHEE/rs"
+    dcm4chee_wado_url: str = "http://localhost:8081/dcm4chee-arc/aets/DCM4CHEE/rs"
+    
+    # Active PACS Selection
+    active_pacs: str = "dcm4chee"  # 'orthanc', 'dcm4chee', or 'both' (future)
+    pacs_poll_interval_seconds: int = 10
 
     # Upload limits
     max_file_size_mb: int = 2048
     chunk_size_mb: int = 1
 
+    # Caching (Redis)
+    redis_url: str | None = "redis://localhost:6379"
+
     # Reports & Notifications
     reports_db_path: str = "data/reports.db"
     pacs_poll_interval_seconds: int = 10  # Poll PACS for report updates
+
+    # Error Monitoring (Sentry)
+    sentry_dsn: str | None = None  # Set to enable Sentry
+    sentry_environment: str = "development"
+    sentry_traces_sample_rate: float = 0.1
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 

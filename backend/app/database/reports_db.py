@@ -76,6 +76,11 @@ class ReportsDatabase:
             "CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read)"
         )
 
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at)"
+        )
+
         conn.commit()
         conn.close()
 

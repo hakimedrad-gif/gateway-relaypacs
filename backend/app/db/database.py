@@ -14,9 +14,21 @@ settings = get_settings()
 DATABASE_URL = settings.database_url
 
 # Create SQLAlchemy engine
+# Create SQLAlchemy engine
 # Use check_same_thread=False only for SQLite
-connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
-engine = create_engine(DATABASE_URL, connect_args=connect_args, echo=False)
+if "sqlite" in DATABASE_URL:
+    connect_args = {"check_same_thread": False}
+    engine = create_engine(DATABASE_URL, connect_args=connect_args, echo=False)
+else:
+    # PostgreSQL production pool settings
+    engine = create_engine(
+        DATABASE_URL,
+        pool_size=20,          # Base number of connections
+        max_overflow=10,       # Max additional connections
+        pool_timeout=30,       # Wait time before timeout
+        pool_recycle=1800,     # Recycle connections every 30 mins
+        echo=False
+    )
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

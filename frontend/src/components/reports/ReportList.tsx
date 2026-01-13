@@ -8,6 +8,15 @@ import { reportApi, type Report, ReportStatus } from '../../services/api';
 import ReportCard from './ReportCard';
 import { useNavigate } from 'react-router-dom';
 
+import { FixedSizeList as List } from 'react-window';
+import AutoSizer from 'react-virtualized-auto-sizer';
+
+interface ListChildComponentProps {
+  index: number;
+  style: React.CSSProperties;
+  data: any;
+}
+
 const ReportList: React.FC = () => {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,10 +108,37 @@ const ReportList: React.FC = () => {
     { id: ReportStatus.ADDITIONAL_DATA_REQUIRED, label: 'Additional Data Needed' },
   ];
 
+  const Row = ({ index, style, data }: ListChildComponentProps) => {
+    const width = data.width;
+    // Responsive grid calculation
+    const CARD_MIN_WIDTH = 300; 
+    const GAP = 24;
+    const itemsPerRow = Math.max(1, Math.floor((width + GAP) / (CARD_MIN_WIDTH + GAP)));
+    
+    const startIndex = index * itemsPerRow;
+    const rowItems = reports.slice(startIndex, startIndex + itemsPerRow);
+
+    return (
+      <div style={style} className="flex gap-6 px-1">
+        {rowItems.map((report) => (
+          <div key={report.id} style={{ flex: `0 0 calc(${100 / itemsPerRow}% - ${(GAP * (itemsPerRow - 1)) / itemsPerRow}px)` }}>
+            <ReportCard
+              report={report}
+              onView={handleView}
+              onDownload={handleDownload}
+              onPrint={handlePrint}
+              onShare={handleShare}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-[calc(100vh-12rem)]">
       {/* Filter Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 mb-6 flex-shrink-0">
         <nav className="-mb-px flex space-x-8" aria-label="Tabs">
           {filterTabs.map((tab) => (
             <button
@@ -122,14 +158,14 @@ const ReportList: React.FC = () => {
 
       {/* Loading State */}
       {loading && (
-        <div className="flex justify-center items-center py-12">
+        <div className="flex justify-center items-center py-12 flex-grow">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       )}
 
       {/* Empty State */}
       {!loading && reports.length === 0 && (
-        <div className="text-center py-12">
+        <div className="text-center py-12 flex-grow">
           <svg
             className="mx-auto h-12 w-12 text-gray-400"
             fill="none"
@@ -150,19 +186,30 @@ const ReportList: React.FC = () => {
         </div>
       )}
 
-      {/* Reports Grid */}
+      {/* Virtualized Grid */}
       {!loading && reports.length > 0 && (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {reports.map((report) => (
-            <ReportCard
-              key={report.id}
-              report={report}
-              onView={handleView}
-              onDownload={handleDownload}
-              onPrint={handlePrint}
-              onShare={handleShare}
-            />
-          ))}
+        <div className="flex-grow">
+          <AutoSizer>
+            {({ height, width }) => {
+              const CARD_MIN_WIDTH = 300; 
+              const GAP = 24;
+              const itemsPerRow = Math.max(1, Math.floor((width + GAP) / (CARD_MIN_WIDTH + GAP)));
+              const rowCount = Math.ceil(reports.length / itemsPerRow);
+              const ITEM_HEIGHT = 280; // Approximate height of card + gap
+
+              return (
+                <List
+                  height={height}
+                  width={width}
+                  itemCount={rowCount}
+                  itemSize={ITEM_HEIGHT}
+                  itemData={{ width }}
+                >
+                  {Row}
+                </List>
+              );
+            }}
+          </AutoSizer>
         </div>
       )}
     </div>

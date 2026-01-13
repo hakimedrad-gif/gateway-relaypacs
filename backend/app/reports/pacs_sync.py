@@ -61,32 +61,46 @@ class PACSReportSyncService:
                 await asyncio.sleep(5)
 
     async def _sync_all_pending_reports(self) -> None:
-        """Sync all reports that are not yet ready (simulation)."""
+        """Sync all reports that are not yet ready by checking active PACS."""
+        # Import here to avoid circular imports if any
+        from app.pacs.service import pacs_service
+        
         for status in [ReportStatus.ASSIGNED, ReportStatus.PENDING]:
             conn = reports_db._get_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT id FROM reports WHERE status = ?", (status.value,))
+            # Select ID and Study Instance UID
+            cursor.execute("SELECT id, study_instance_uid FROM reports WHERE status = ?", (status.value,))
             rows = cursor.fetchall()
             conn.close()
 
             for row in rows:
                 report_id = row["id"]
-                next_status = (
-                    ReportStatus.PENDING if status == ReportStatus.ASSIGNED else ReportStatus.READY
-                )
-
-                sim_data = {}
-                if next_status == ReportStatus.READY:
-                    sim_data = {
-                        "radiologist_name": "Dr. Simulated",
-                        "report_text": "Simulation: Normal findings. Test report.",
+                study_uid = row["study_instance_uid"]
+                
+                # Check real PACS for report existence (SR/DOC/KO/PR)
+                has_report = pacs_service.check_for_report(study_uid)
+                
+                if has_report:
+                    # Report found in PACS -> Mark as READY
+                    logger.info(f"Report found in PACS for study {study_uid}, marking as READY")
+                    
+                    # In a real scenario, we would retrieve the report content here.
+                    # For now, we update the status and point to the download endpoint which generates a PDF.
+                    # We can update the text to indicate it's from PACS.
+                    pacs_data = {
+                        "radiologist_name": "External Radiologist (PACS)",
+                        "report_text": "Report retrieved from PACS. Full content available in PDF download.",
                         "report_url": f"/api/reports/{report_id}/download",
                     }
+                    
+                    await self.update_report_status(report_id, ReportStatus.READY, pacs_data)
+                else:
+                    # No report yet, stay in current status
+                    # Uncomment below to keep simulation for testing if needed, but for now we want REAL checks
+                    # logger.debug(f"No report found yet for {study_uid}")
+                    pass
 
-                await self.update_report_status(report_id, next_status, sim_data)
-                logger.debug(f"Simulated status update for {report_id}: {status} -> {next_status}")
-
-        logger.debug("PACS sync simulation check completed")
+        logger.debug("PACS sync check completed")
 
     async def sync_report_by_study_uid(self, study_uid: str) -> dict[str, Any] | None:
         """

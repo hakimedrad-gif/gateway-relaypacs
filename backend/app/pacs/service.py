@@ -13,28 +13,51 @@ class PACSService:
     """Service to handle forwarding DICOM files to a PACS via DICOMweb (STOW-RS)"""
 
     def __init__(self) -> None:
-        # Initialize DICOMweb client using a session for auth
-        session = requests.Session()
+        self.orthanc_client: DICOMwebClient | None = None
+        self.dcm4chee_client: DICOMwebClient | None = None
+        self._init_clients()
 
-        if settings.pacs_type == "dcm4chee":
-            # dcm4chee usually uses its own stow url
-            stow_url = settings.dcm4chee_stow_url
-            # dcm4chee might have different auth, but for now we'll assume none or similar
-        else:
-            stow_url = settings.pacs_stow_url
+    def _init_clients(self) -> None:
+        """Initialize DICOMweb clients for both PACS if configured"""
+        
+        # Initialize Orthanc Client
+        if settings.orthanc_url:
+            session = requests.Session()
             if settings.orthanc_username and settings.orthanc_password:
                 session.auth = requests.auth.HTTPBasicAuth(
                     settings.orthanc_username, settings.orthanc_password
                 )
+            base_url = settings.orthanc_wado_url.rstrip("/")
+            self.orthanc_client = DICOMwebClient(url=base_url, session=session)
 
-        # The URL in config might be the full STOW URL,
-        base_url = stow_url.replace("/studies", "")
+        # Initialize dcm4che Client
+        if settings.dcm4chee_url:
+            session = requests.Session()
+            # Add dcm4che auth here if needed in future
+            base_url = settings.dcm4chee_url.rstrip("/")
+            self.dcm4chee_client = DICOMwebClient(url=base_url, session=session)
 
-        self.client = DICOMwebClient(url=base_url, session=session)
+    def get_active_client(self) -> DICOMwebClient:
+        """Get the client for the currently active PACS"""
+        if settings.active_pacs == "dcm4chee":
+            if not self.dcm4chee_client:
+                raise RuntimeError("dcm4che client not initialized (check URL config)")
+            return self.dcm4chee_client
+        elif settings.active_pacs == "orthanc":
+            if not self.orthanc_client:
+                raise RuntimeError("Orthanc client not initialized (check URL config)")
+            return self.orthanc_client
+        else:
+            # Fallback or default
+            if self.dcm4chee_client:
+                return self.dcm4chee_client
+            if self.orthanc_client:
+                return self.orthanc_client
+            raise RuntimeError("No PACS clients available")
 
     def forward_files(self, file_paths: list[Path | str]) -> str:
         """
-        Forward a list of DICOM files to PACS using STOW-RS.
+        Forward a list of DICOM files to the ACTIVE PACS using STOW-RS.
         Returns a receipt/transaction ID.
         """
         datasets = []
@@ -45,16 +68,26 @@ class PACSService:
         if not datasets:
             raise ValueError("No datasets to forward")
 
+        client = self.get_active_client()
+        pacs_name = settings.active_pacs
+
         try:
             # Store instances via DICOMweb (STOW-RS)
-            # dicomweb-client handles the multipart encoding
-            self.client.store_instances(datasets=datasets)
-            return "STOW-SUCCESS-" + str(len(datasets))
+            client.store_instances(datasets=datasets)
+            return f"STOW-SUCCESS-{pacs_name}-{len(datasets)}"
 
         except Exception as e:
-            print(f"STOW-RS failed, attempting Orthanc REST fallback: {e}")
-            # Fallback to Orthanc native REST API
-            return self._forward_via_orthanc_rest(file_paths)
+            print(f"STOW-RS to {pacs_name} failed: {e}")
+            
+            # If Orthanc is active (or even if not), we might want to try Orthanc REST fallback
+            # But only if targeting Orthanc? Or always as a backup?
+            # For now, replicate legacy behavior: fallback to Orthanc REST if explicit STOW fails
+            # but usually Orthanc REST is only for Orthanc.
+            
+            if pacs_name == "orthanc" or settings.active_pacs == "orthanc":
+                 return self._forward_via_orthanc_rest(file_paths)
+            
+            raise e
 
     def _forward_via_orthanc_rest(self, file_paths: list[Path | str]) -> str:
         """Fallback: Upload to Orthanc via native REST API (POST /instances)"""

@@ -80,12 +80,12 @@ docker exec -i geteway-postgres-1 psql -U relaypacs -d relaypacs < backups/sqlit
 ```bash
 # Check table counts
 docker exec geteway-postgres-1 psql -U relaypacs -d relaypacs -c "
-SELECT 
+SELECT
     schemaname,
     tablename,
-    (xpath('//row[td[1]/text() = \"Live rows\"]/td[2]/text()', 
+    (xpath('//row[td[1]/text() = \"Live rows\"]/td[2]/text()',
      query_to_xml('SELECT * FROM pg_stat_user_tables WHERE relname = tablename', true)))[1]::text AS row_count
-FROM pg_tables 
+FROM pg_tables
 WHERE schemaname = 'public';
 "
 
