@@ -24,6 +24,17 @@ class BaseStorageService:
     async def chunk_exists(self, upload_id: str, file_id: str, chunk_index: int) -> bool:
         raise NotImplementedError()
 
+    async def verify_chunk(
+        self, upload_id: str, file_id: str, chunk_index: int, expected_size: int
+    ) -> bool:
+        """
+        Verify chunk was written correctly by checking its size.
+        
+        This prevents silent data loss when chunk write fails mid-operation.
+        Returns True if chunk exists and has correct size, False otherwise.
+        """
+        raise NotImplementedError()
+
 
 class LocalStorageService(BaseStorageService):
     def __init__(self) -> None:
@@ -43,6 +54,22 @@ class LocalStorageService(BaseStorageService):
     async def chunk_exists(self, upload_id: str, file_id: str, chunk_index: int) -> bool:
         chunk_path = self.base_path / str(upload_id) / str(file_id) / f"{chunk_index}.part"
         return chunk_path.exists()
+
+    async def verify_chunk(
+        self, upload_id: str, file_id: str, chunk_index: int, expected_size: int
+    ) -> bool:
+        """
+        Verify chunk exists and has the correct size.
+        
+        Prevents silent data corruption from partial writes.
+        """
+        chunk_path = self.base_path / str(upload_id) / str(file_id) / f"{chunk_index}.part"
+        
+        if not chunk_path.exists():
+            return False
+        
+        actual_size = chunk_path.stat().st_size
+        return actual_size == expected_size
 
     async def merge_chunks(self, upload_id: str, file_id: str, total_chunks: int) -> Path:
         file_dir = self.base_path / str(upload_id) / str(file_id)
@@ -85,6 +112,22 @@ class S3StorageService(BaseStorageService):
         try:
             self.s3.head_object(Bucket=self.bucket, Key=key)
             return True
+        except ClientError:
+            return False
+
+    async def verify_chunk(
+        self, upload_id: str, file_id: str, chunk_index: int, expected_size: int
+    ) -> bool:
+        """
+        Verify S3 chunk exists and has correct size.
+        
+        Uses HEAD request to check object metadata without downloading.
+        """
+        key = f"{upload_id}/{file_id}/chunks/{chunk_index}.part"
+        try:
+            response = self.s3.head_object(Bucket=self.bucket, Key=key)
+            actual_size = response["ContentLength"]
+            return actual_size == expected_size
         except ClientError:
             return False
 

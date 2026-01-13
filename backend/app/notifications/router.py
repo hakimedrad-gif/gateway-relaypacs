@@ -1,9 +1,7 @@
-"""API router for notifications and SSE endpoints."""
-
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth.dependencies import get_current_user
 from app.database.reports_db import reports_db
@@ -19,7 +17,7 @@ async def list_notifications(
     offset: int = 0,
     unread_only: bool = False,
     user: dict[str, Any] = Depends(get_current_user),
-):
+) -> NotificationListResponse:
     """
     List notifications for the authenticated user.
 
@@ -46,9 +44,30 @@ async def list_notifications(
 async def mark_notification_read(
     notification_id: UUID,
     user: dict[str, Any] = Depends(get_current_user),
-):
-    """Mark a specific notification as read."""
-    # TODO: Verify the notification belongs to the user before marking as read
+) -> dict[str, bool]:
+    """
+    Mark a specific notification as read.
+
+    Security: Verifies notification belongs to the authenticated user
+    before allowing the operation.
+    """
+    user_id = user["sub"]
+
+    # Verify the notification exists and belongs to the user
+    notification = reports_db.get_notification_by_id(notification_id)
+
+    if not notification:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Notification {notification_id} not found",
+        )
+
+    if notification.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to access this notification",
+        )
+
     reports_db.mark_notification_read(notification_id)
 
     return {"success": True}
@@ -57,7 +76,7 @@ async def mark_notification_read(
 @router.patch("/read-all")
 async def mark_all_notifications_read(
     user: dict[str, Any] = Depends(get_current_user),
-):
+) -> dict[str, int]:
     """Mark all notifications as read for the current user."""
     user_id = user["sub"]
     count = reports_db.mark_all_notifications_read(user_id)
@@ -68,7 +87,7 @@ async def mark_all_notifications_read(
 @router.get("/stream")
 async def notifications_stream(
     user: dict[str, Any] = Depends(get_current_user),
-):
+) -> Any:
     """
     Server-Sent Events (SSE) endpoint for real-time notifications.
 
