@@ -23,32 +23,33 @@ class UploadInitRequest(BaseModel):
     study_metadata: StudyMetadata
     total_files: int = Field(gt=0, description="Total number of files to upload")
     total_size_bytes: int = Field(
-        gt=0,
-        description="Total size in bytes (max enforced by validator)"
+        gt=0, description="Total size in bytes (max enforced by validator)"
     )
     clinical_history: str | None = None
-    
+    force_upload: bool = False  # Override duplicate detection
+
     @field_validator("total_size_bytes")
     @classmethod
     def validate_upload_size(cls, v: int) -> int:
         """
         Validate upload size does not exceed maximum allowed.
-        
+
         Prevents DoS attacks via resource exhaustion by rejecting
         uploads claiming excessive sizes.
         """
         # Import here to avoid circular dependency
         from app.config import get_settings
+
         settings = get_settings()
-        
+
         max_size_bytes = settings.max_file_size_mb * 1024 * 1024
-        
+
         if v > max_size_bytes:
             raise ValueError(
                 f"Upload size ({v:,} bytes = {v / 1024 / 1024:.1f} MB) "
                 f"exceeds maximum allowed ({max_size_bytes:,} bytes = {settings.max_file_size_mb} MB)"
             )
-        
+
         return v
 
 
@@ -59,6 +60,7 @@ class UploadInitResponse(BaseModel):
     upload_token: str
     chunk_size: int
     expires_at: datetime
+    warning: str | None = None  # For duplicate detection warnings
 
 
 class ChunkUploadResponse(BaseModel):

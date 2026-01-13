@@ -39,3 +39,31 @@ class User(Base):
 
     def __repr__(self) -> str:
         return f"<User(username='{self.username}', email='{self.email}', role='{self.role}')>"
+
+
+class StudyUpload(Base):
+    """
+    Track uploaded studies to detect and prevent duplicates.
+    
+    Stores a hash of key study identifiers to quickly check if a study
+    has been uploaded previously within a retention window.
+    """
+    
+    __tablename__ = "study_uploads"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    upload_id = Column(String(50), nullable=False, index=True)
+    
+    # Core DICOM identifiers
+    study_instance_uid = Column(String(64), nullable=False)
+    patient_id = Column(String(64), nullable=False)
+    
+    # Hash for fast lookup: SHA256(StudyInstanceUID + PatientID)
+    study_hash = Column(String(64), nullable=False, index=True)
+    
+    # Audit info
+    user_id = Column(UUID(as_uuid=True), nullable=True)  # Who uploaded it?
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+    
+    def __repr__(self) -> str:
+        return f"<StudyUpload(hash='{self.study_hash}', upload_id='{self.upload_id}')>"
