@@ -24,7 +24,9 @@ TEST_USERS = {
 
 @router.post("/login", response_model=TokenPair)
 @limiter.limit("5/minute")  # Prevent brute-force attacks
-async def login(request: Request, credentials: UserLogin, db: Session = Depends(get_db)) -> TokenPair:
+async def login(
+    request: Request, credentials: UserLogin, db: Session = Depends(get_db)
+) -> TokenPair:
     """
     Authenticate user and issue access tokens.
     Supports both database users and legacy TEST_USERS for backward compatibility.
@@ -51,10 +53,11 @@ async def login(request: Request, credentials: UserLogin, db: Session = Depends(
                     detail="TOTP code required",
                     headers={"X-TOTP-Required": "true"},
                 )
-            
+
             from app.auth.totp import totp_service
+
             if not totp_service.verify_totp(user.totp_secret, credentials.totp_code):
-                 raise HTTPException(
+                raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid TOTP code",
                 )
@@ -79,7 +82,9 @@ async def login(request: Request, credentials: UserLogin, db: Session = Depends(
 
 @router.post("/register", response_model=TokenPair, status_code=status.HTTP_201_CREATED)
 @limiter.limit("3/hour")  # Prevent account spamming
-async def register(request: Request, user_data: UserCreate, db: Session = Depends(get_db)) -> TokenPair:
+async def register(
+    request: Request, user_data: UserCreate, db: Session = Depends(get_db)
+) -> TokenPair:
     """
     Register a new user account with hashed password.
     """
@@ -137,3 +142,35 @@ async def get_current_user_info(
         )
 
     return UserResponse.model_validate(user)
+
+
+@router.post("/refresh-upload-token")
+async def refresh_upload_token(
+    upload_id: str,
+    user: dict[str, Any] = Depends(get_current_user),
+) -> dict[str, str]:
+    """
+    Refresh an upload token during long uploads to prevent token expiry.
+    """
+    from app.upload.service import upload_manager
+    from app.auth.utils import create_upload_token
+    
+    # Verify upload session exists and belongs to user
+    session = upload_manager.get_session(upload_id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Upload session not found"
+        )
+    
+    # Ensure strict string comparison for user authorization
+    if str(session.user_id) != str(user["sub"]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to refresh this upload token"
+        )
+    
+    # Create new upload token with fresh expiry
+    new_token = create_upload_token(upload_id, user["sub"])
+    
+    return {"upload_token": new_token}

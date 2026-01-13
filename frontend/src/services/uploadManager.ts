@@ -122,64 +122,85 @@ export class UploadManagerService {
       });
     }
 
-    // 3. Process Files
-    const files = await db.files.where('studyId').equals(studyId).toArray();
+    // Start token refresh interval (every 20 minutes) to prevent expiry
+    const refreshInterval = setInterval(async () => {
+      try {
+        if (!uploadId) return;
+        console.log('Refreshing upload token...');
+        const response = await uploadApi.refreshUploadToken(uploadId);
+        uploadToken = response.upload_token;
+        
+        // Update local DB with new token
+        await db.studies.update(studyId, { uploadToken });
+      } catch (e) {
+        console.error('Failed to refresh upload token:', e);
+        // Don't stop upload, just log error. Next request might fail or succeed if grace period.
+      }
+    }, 20 * 60 * 1000); // 20 minutes
 
-    for (const file of files) {
-      // Chunking logic
-      const totalChunks = Math.ceil(file.size / chunkSize);
+    try {
+      // 3. Process Files
+      const files = await db.files.where('studyId').equals(studyId).toArray();
 
-      for (let i = 0; i < totalChunks; i++) {
-        // Check local state first (fastest)
-        if (file.uploadedChunks.includes(i)) continue;
+      for (const file of files) {
+        // Chunking logic
+        const totalChunks = Math.ceil(file.size / chunkSize);
 
-        const start = i * chunkSize;
-        const end = Math.min(start + chunkSize, file.size);
+        for (let i = 0; i < totalChunks; i++) {
+          // Check local state first (fastest)
+          if (file.uploadedChunks.includes(i)) continue;
 
-        let chunkBlob: Blob;
-        if (file.blob instanceof Blob) {
-          chunkBlob = file.blob.slice(start, end);
-        } else {
-          // Fallback: If it's ArrayBuffer or ArrayBufferView (from IndexedDB),
-          // new Blob([value]) handles it correctly.
+          const start = i * chunkSize;
+          const end = Math.min(start + chunkSize, file.size);
+
+          let chunkBlob: Blob;
+          if (file.blob instanceof Blob) {
+            chunkBlob = file.blob.slice(start, end);
+          } else {
+            // Fallback: If it's ArrayBuffer or ArrayBufferView (from IndexedDB),
+            // new Blob([value]) handles it correctly.
+            try {
+              const tempBlob = new Blob([file.blob as BlobPart]);
+              chunkBlob = tempBlob.slice(start, end);
+            } catch (e) {
+              console.error('Failed to convert stored file content to Blob:', e);
+              throw new Error(`File content for ${file.fileName} could not be processed`);
+            }
+          }
+
           try {
-            const tempBlob = new Blob([file.blob as BlobPart]);
-            chunkBlob = tempBlob.slice(start, end);
-          } catch (e) {
-            console.error('Failed to convert stored file content to Blob:', e);
-            throw new Error(`File content for ${file.fileName} could not be processed`);
+            // Upload chunk
+            await uploadApi.uploadChunk(
+              uploadId!,
+              String(file.id), // Use local file ID as file ref
+              i,
+              chunkBlob,
+              uploadToken!,
+            );
+
+            // Update local progress
+            file.uploadedChunks.push(i);
+            await db.files.update(file.id!, { uploadedChunks: file.uploadedChunks });
+          } catch (e: unknown) {
+            // If manual idempotency needed? Backend handles it with 204 or 200 "exists"
+            // If network error, we just throw/stop. The manager loop stops.
+            // User can click "Retry" which calls startUpload again -> hits Resume path.
+            console.error(`Chunk upload failed for file ${file.fileName} chunk ${i}`, e);
+            throw e; // Stop the process so UI shows error/can retry
           }
         }
-
-        try {
-          // Upload chunk
-          await uploadApi.uploadChunk(
-            uploadId!,
-            String(file.id), // Use local file ID as file ref
-            i,
-            chunkBlob,
-            uploadToken!,
-          );
-
-          // Update local progress
-          file.uploadedChunks.push(i);
-          await db.files.update(file.id!, { uploadedChunks: file.uploadedChunks });
-        } catch (e: unknown) {
-          // If manual idempotency needed? Backend handles it with 204 or 200 "exists"
-          // If network error, we just throw/stop. The manager loop stops.
-          // User can click "Retry" which calls startUpload again -> hits Resume path.
-          console.error(`Chunk upload failed for file ${file.fileName} chunk ${i}`, e);
-          throw e; // Stop the process so UI shows error/can retry
-        }
       }
+
+      // 4. Complete
+      await uploadApi.completeUpload(uploadId!, uploadToken!);
+      await db.studies.update(studyId, { status: 'complete' });
+
+      // CRITICAL: Cleanup files from local storage to prevent PHI persistence
+      await db.files.where('studyId').equals(studyId).delete();
+    } finally {
+      // Always clear the refresh interval
+      clearInterval(refreshInterval);
     }
-
-    // 4. Complete
-    await uploadApi.completeUpload(uploadId!, uploadToken!);
-    await db.studies.update(studyId, { status: 'complete' });
-
-    // CRITICAL: Cleanup files from local storage to prevent PHI persistence
-    await db.files.where('studyId').equals(studyId).delete();
   }
 }
 
