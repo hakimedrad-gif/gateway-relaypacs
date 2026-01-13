@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -15,12 +16,14 @@ from app.models.upload import (
     UploadInitResponse,
     UploadStatusResponse,
 )
+from app.notifications.service import notification_service
 from app.pacs.service import pacs_service
 from app.storage.service import storage_service
-from app.upload.analytics import export_stats_to_csv, generate_trend_data
-from app.upload.service import stats_manager, upload_manager
+from app.upload.analytics import export_stats_to_csv, generate_trend_data, stats_manager
+from app.upload.service import upload_manager
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/init", response_model=UploadInitResponse)
@@ -94,7 +97,34 @@ async def upload_chunk(
     received_bytes = len(body)
 
     if not chunk_exists:
+        # Save chunk to storage
         await storage_service.save_chunk(str(upload_id), file_id, chunk_index, body)
+
+        # CRITICAL: Verify chunk was written correctly
+        # This prevents silent data loss if write fails mid-operation
+        chunk_verified = await storage_service.verify_chunk(
+            str(upload_id), file_id, chunk_index, received_bytes
+        )
+
+        if not chunk_verified:
+            # Chunk write failed or corrupted - delete partial file and fail fast
+            try:
+                # Attempt to delete corrupted chunk
+                chunk_path = (
+                    storage_service.base_path
+                    / str(upload_id)
+                    / str(file_id)
+                    / f"{chunk_index}.part"
+                )
+                if hasattr(storage_service, "base_path") and chunk_path.exists():
+                    chunk_path.unlink()
+            except Exception:
+                pass  # Deletion is best-effort
+
+            raise HTTPException(
+                status_code=500,
+                detail=f"Chunk {chunk_index} write verification failed. Expected {received_bytes} bytes. Please retry upload.",
+            )
 
     session.register_file_chunk(file_id, chunk_index, received_bytes if not chunk_exists else 0)
     upload_manager.update_session(session)  # Persist state
@@ -157,19 +187,41 @@ async def complete_upload(  # noqa: PLR0912, PLR0915
 
             processed_count += 1
             merged_paths.append(final_path)
-        except Exception as e:
+        except OSError as e:
+            # Storage/file system errors
             failed_count += 1
-            warnings.append(f"File {file_id} failed: {e!s}")
+            error_msg = f"Storage error for file {file_id}: {type(e).__name__}: {e!s}"
+            warnings.append(error_msg)
+            logger.error(
+                error_msg, exc_info=True, extra={"upload_id": str(upload_id), "file_id": file_id}
+            )
+        except Exception as e:
+            # DICOM processing errors from extract_metadata
+            failed_count += 1
+            error_msg = f"DICOM processing error for file {file_id}: {type(e).__name__}: {e!s}"
+            warnings.append(error_msg)
+            logger.error(
+                error_msg, exc_info=True, extra={"upload_id": str(upload_id), "file_id": file_id}
+            )
+            # Note: This still catches all exceptions but logs them properly
+            # for debugging. In future, pydicom should raise specific exceptions.
 
     # 3. Queue for PACS forwarding
     pacs_receipt_id = None
     if processed_count > 0:
         try:
             pacs_receipt_id = pacs_service.forward_files(merged_paths)
+        except (ConnectionError, TimeoutError) as e:
+            # Network/connection errors to PACS
+            error_msg = f"PACS connection failed: {type(e).__name__}: {e!s}"
+            warnings.append(error_msg)
+            logger.error(error_msg, exc_info=True, extra={"upload_id": str(upload_id)})
         except Exception as e:
-            # Don't fail the whole request, but warn
-            warnings.append(f"PACS forwarding failed: {e!s}")
-            # We keep status as success/partial but with warning
+            # Other PACS errors (authentication, protocol, etc)
+            error_msg = f"PACS forwarding failed: {type(e).__name__}: {e!s}"
+            warnings.append(error_msg)
+            logger.error(error_msg, exc_info=True, extra={"upload_id": str(upload_id)})
+            # Note: Still catches all for backward compatibility but logs properly
 
     status = "success"
     if failed_count > 0:
@@ -270,10 +322,10 @@ async def get_upload_stats(
         return cached_data
 
     stats = stats_manager.get_stats(period)
-    
+
     # Cache for 60 seconds
     await cache_service.set(cache_key, stats, expire=60)
-    
+
     return stats
 
 

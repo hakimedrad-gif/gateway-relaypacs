@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.auth.utils import create_access_token, create_refresh_token, hash_password, verify_password
 from app.db.database import get_db
 from app.db.models import User as UserModel
+from app.limiter import limiter
 from app.models.user import TokenPair, UserCreate, UserLogin, UserResponse
 
 router = APIRouter()
@@ -22,7 +23,8 @@ TEST_USERS = {
 
 
 @router.post("/login", response_model=TokenPair)
-async def login(credentials: UserLogin, db: Session = Depends(get_db)) -> TokenPair:
+@limiter.limit("5/minute")  # Prevent brute-force attacks
+async def login(request: Request, credentials: UserLogin, db: Session = Depends(get_db)) -> TokenPair:
     """
     Authenticate user and issue access tokens.
     Supports both database users and legacy TEST_USERS for backward compatibility.
@@ -76,7 +78,8 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)) -> TokenP
 
 
 @router.post("/register", response_model=TokenPair, status_code=status.HTTP_201_CREATED)
-async def register(user_data: UserCreate, db: Session = Depends(get_db)) -> TokenPair:
+@limiter.limit("3/hour")  # Prevent account spamming
+async def register(request: Request, user_data: UserCreate, db: Session = Depends(get_db)) -> TokenPair:
     """
     Register a new user account with hashed password.
     """
