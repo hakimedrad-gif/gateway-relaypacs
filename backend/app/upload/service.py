@@ -34,13 +34,22 @@ class UploadSession:
         self.expires_at = self.created_at + timedelta(minutes=settings.upload_token_expire_minutes)
         self.files: dict[str, dict[str, Any]] = {}  # Track chunks per file
 
-    def register_file_chunk(self, file_id: str, chunk_index: int, chunk_size: int) -> None:
+    def register_file_chunk(self, file_id: str, chunk_index: int, chunk_size: int, checksum: str | None = None) -> None:
+        """Register a chunk for a file, optionally with checksum for integrity validation."""
         if file_id not in self.files:
-            self.files[file_id] = {"chunks": set(), "complete": False}
+            self.files[file_id] = {
+                "chunks": set(),
+                "checksums": {},  # Map of chunk_index -> checksum
+                "complete": False
+            }
 
         if chunk_index not in self.files[file_id]["chunks"]:
             self.files[file_id]["chunks"].add(chunk_index)
             self.uploaded_bytes += chunk_size
+            
+            # Store checksum if provided
+            if checksum:
+                self.files[file_id]["checksums"][chunk_index] = checksum
 
 
 class UploadManager:
@@ -68,7 +77,11 @@ class UploadManager:
             "created_at": session.created_at.isoformat(),
             "expires_at": session.expires_at.isoformat(),
             "files": {
-                fid: {"chunks": list(info["chunks"]), "complete": info["complete"]}
+                fid: {
+                    "chunks": list(info["chunks"]),
+                    "checksums": info.get("checksums", {}),
+                    "complete": info["complete"]
+                }
                 for fid, info in session.files.items()
             },
         }
@@ -96,12 +109,12 @@ class UploadManager:
                 session.created_at = datetime.fromisoformat(data["created_at"])
                 session.expires_at = datetime.fromisoformat(data["expires_at"])
 
-                # Reconstruct files dict
                 # Convert list back to set
                 files_data = data.get("files", {})
                 for fid, info in files_data.items():
                     session.files[fid] = {
                         "chunks": set(info["chunks"]),
+                        "checksums": info.get("checksums", {}),
                         "complete": info["complete"],
                     }
 

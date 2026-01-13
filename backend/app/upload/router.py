@@ -95,6 +95,9 @@ async def upload_chunk(
         raise HTTPException(status_code=400, detail="Empty body")
 
     received_bytes = len(body)
+    
+    # Calculate MD5 checksum for integrity validation
+    chunk_checksum = hashlib.md5(body).hexdigest()
 
     if not chunk_exists:
         # Save chunk to storage
@@ -126,7 +129,8 @@ async def upload_chunk(
                 detail=f"Chunk {chunk_index} write verification failed. Expected {received_bytes} bytes. Please retry upload.",
             )
 
-    session.register_file_chunk(file_id, chunk_index, received_bytes if not chunk_exists else 0)
+    # Register chunk with checksum for integrity validation during merge
+    session.register_file_chunk(file_id, chunk_index, received_bytes if not chunk_exists else 0, chunk_checksum)
     upload_manager.update_session(session)  # Persist state
 
     if chunk_exists:

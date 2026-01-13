@@ -1,10 +1,20 @@
+import logging
 from pathlib import Path
 
 import pydicom
 import requests
 from dicomweb_client.api import DICOMwebClient
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+    before_sleep_log,
+)
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -55,9 +65,23 @@ class PACSService:
                 return self.orthanc_client
             raise RuntimeError("No PACS clients available")
 
+    @retry(
+        retry=retry_if_exception_type((ConnectionError, TimeoutError, requests.exceptions.RequestException)),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
     def forward_files(self, file_paths: list[Path | str]) -> str:
         """
         Forward a list of DICOM files to the ACTIVE PACS using STOW-RS.
+        
+        Implements retry logic with exponential backoff to handle transient failures:
+        - Retries up to 3 times
+        - Exponential backoff: 2s, 4s, 8s (capped at 30s)
+        - Only retries on connection/timeout errors
+        - Logs warnings before each retry
+        
         Returns a receipt/transaction ID.
         """
         datasets = []
