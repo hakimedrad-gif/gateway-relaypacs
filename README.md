@@ -46,8 +46,16 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Create .env file
-# (Already configured in the repository, but ensure variables match)
+# Create .env file from template
+cp .env.example .env
+
+# IMPORTANT: Generate a secure secret key
+python -c "import secrets; print('SECRET_KEY=' + secrets.token_urlsafe(32))"
+# Copy the output and update SECRET_KEY in backend/.env
+
+# The .env file should contain:
+# SECRET_KEY=<your-generated-secret-key>
+# DATABASE_URL=sqlite:///./relaypacs.db
 # API_PORT=8003
 # CORS_ORIGINS=["http://localhost:3002", "http://10.10.20.50:3002"]
 ```

@@ -24,6 +24,11 @@ class User(Base):
     )  # clinician, radiographer, radiologist, admin
     clinic_id = Column(UUID(as_uuid=True), nullable=True)  # Future: link to clinic/organization
     is_active = Column(Boolean, default=True, nullable=False)
+    
+    # 2FA (TOTP)
+    totp_secret = Column(String(32), nullable=True)
+    totp_enabled = Column(Boolean, default=False, nullable=False)
+
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),

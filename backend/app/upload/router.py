@@ -262,8 +262,19 @@ async def complete_upload(  # noqa: PLR0912, PLR0915
 async def get_upload_stats(
     period: str | None = None, user: dict[str, Any] = Depends(get_current_user)
 ) -> dict[str, Any]:
-    """Get aggregated upload statistics"""
-    return stats_manager.get_stats(period)
+    """Get aggregated upload statistics (cached for 60s)"""
+    from app.cache import cache_service
+
+    cache_key = f"stats:{period or 'all'}"
+    if cached_data := await cache_service.get(cache_key):
+        return cached_data
+
+    stats = stats_manager.get_stats(period)
+    
+    # Cache for 60 seconds
+    await cache_service.set(cache_key, stats, expire=60)
+    
+    return stats
 
 
 @router.get("/{upload_id}/status", response_model=UploadStatusResponse)

@@ -21,11 +21,12 @@ export const useAuth = () => {
     };
   });
 
-  const login = useCallback(async (username: string, password: string) => {
+  const login = useCallback(async (username: string, password: string, totpCode?: string) => {
     try {
       const response = await axios.post(`${API_BASE_URL}/auth/login`, {
         username,
         password,
+        totp_code: totpCode,
       });
 
       const { access_token, refresh_token } = response.data;

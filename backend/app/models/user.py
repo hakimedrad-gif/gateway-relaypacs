@@ -26,6 +26,7 @@ class UserLogin(BaseModel):
 
     username: str
     password: str
+    totp_code: str | None = None
 
 
 class UserResponse(UserBase):

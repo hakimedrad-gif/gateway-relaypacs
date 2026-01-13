@@ -16,7 +16,8 @@ class DICOMService:
         If safe_only=True, identifying PHI (PatientName) is replaced with "REDACTED".
         """
         try:
-            ds = pydicom.dcmread(str(file_path))
+            # Optimize: Stop reading before pixel data to speed up metadata extraction
+            ds = pydicom.dcmread(str(file_path), stop_before_pixels=True)
 
             # Extract fields reliably
             patient_name = str(getattr(ds, "PatientName", "Unknown"))

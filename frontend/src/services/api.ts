@@ -73,8 +73,9 @@ export const uploadApi = {
   login: async (
     username: string,
     password: string,
+    totpCode?: string,
   ): Promise<{ access_token: string; refresh_token?: string }> => {
-    const response = await api.post('/auth/login', { username, password });
+    const response = await api.post('/auth/login', { username, password, totp_code: totpCode });
     return response.data;
   },
 
@@ -161,6 +162,23 @@ export const uploadApi = {
       params: { period },
       responseType: 'blob',
     });
+    return response.data;
+  },
+};
+
+export const totpApi = {
+  setup: async (): Promise<{ secret: string; qr_code: string; provisioning_uri: string }> => {
+    const response = await api.post('/api/v1/auth/2fa/setup');
+    return response.data;
+  },
+
+  enable: async (code: string, secret: string): Promise<{ success: boolean; enabled: boolean }> => {
+    const response = await api.post('/api/v1/auth/2fa/enable', { code, secret });
+    return response.data;
+  },
+
+  disable: async (): Promise<{ success: boolean; enabled: boolean }> => {
+    const response = await api.post('/api/v1/auth/2fa/disable');
     return response.data;
   },
 };

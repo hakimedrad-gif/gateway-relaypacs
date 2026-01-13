@@ -6,6 +6,7 @@ import { PWAInstallPrompt } from './PWAInstallPrompt';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import NotificationBell from './notifications/NotificationBell';
+import { SkipNavigation } from './SkipNavigation';
 
 export const Layout: React.FC = () => {
   const isOnline = useNetworkStatus();
@@ -20,9 +21,10 @@ export const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col">
+      <SkipNavigation mainContentId="main-content" />
       <NetworkStatus />
       <PWAInstallPrompt />
-      <header className="bg-slate-800/90 backdrop-blur-md p-4 border-b border-white/5 shadow-2xl sticky top-0 z-50">
+      <header role="banner" className="bg-slate-800/90 backdrop-blur-md p-4 border-b border-white/5 shadow-2xl sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/40">
@@ -106,12 +108,12 @@ export const Layout: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 container mx-auto p-4 max-w-md md:max-w-2xl pb-24 md:pb-8">
+      <main id="main-content" role="main" className="flex-1 container mx-auto p-4 max-w-md md:max-w-2xl pb-24 md:pb-8">
         <Outlet />
       </main>
 
       {/* Mobile Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-white/5 p-4 flex justify-around items-center z-50">
+      <nav role="navigation" aria-label="Mobile Navigation" className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-white/5 p-4 flex justify-around items-center z-50">
         <button
           onClick={() => navigate('/')}
           className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-500 transition-colors"
