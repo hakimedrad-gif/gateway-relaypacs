@@ -141,6 +141,13 @@ export const uploadApi = {
     return response.data;
   },
 
+  refreshUploadToken: async (uploadId: string): Promise<{ upload_token: string }> => {
+    const response = await api.post('/auth/refresh-upload-token', null, {
+      params: { upload_id: uploadId },
+    });
+    return response.data;
+  },
+
   getStats: async (period?: string): Promise<UploadStats> => {
     const response = await api.get('/upload/stats', { params: { period } });
     return response.data;
