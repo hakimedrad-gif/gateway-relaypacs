@@ -10,17 +10,41 @@ services:
       - ./backend:/app
     environment:
       - DEBUG=true
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - DATABASE_URL=postgresql+psycopg2://relaypacs:relaypacs@postgres:5432/relaypacs
       - S3_ENDPOINT=http://minio:9000
       - USE_S3=true
       - ORTHANC_URL=http://orthanc:8042
-      - DCM4CHEE_STOW_URL=http://dcm4chee:8080/dcm4chee-arc/aets/DCM4CHEE/rs/studies
+      - DCM4CHEE_URL=http://dcm4chee:8080/dcm4chee-arc/aets/DCM4CHEE/rs
       - PACS_TYPE=dcm4chee
       - API_PORT=8003
+      - REDIS_URL=redis://redis:6379
       - CORS_ORIGINS=["http://localhost:3002","http://10.10.20.50:3002"]
     depends_on:
-      - minio
-      - orthanc
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      orthanc:
+        condition: service_started
     command: uvicorn app.main:app --host 0.0.0.0 --port 8003 --reload
+
+  # PostgreSQL for RelayPACS App
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: relaypacs
+      POSTGRES_USER: relaypacs
+      POSTGRES_PASSWORD: relaypacs
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U relaypacs -d relaypacs"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # Frontend (Nginx Production Build)
   frontend:
@@ -62,6 +86,9 @@ services:
       - ORTHANC__AUTHENTICATION_ENABLED=true
       - ORTHANC__REGISTERED_USERS={"orthanc":"orthanc"}
       - ORTHANC__DICOM_WEB_ENABLED=true
+      # Register the RelayPACS Gateway as a known modality (Client Node)
+      # Format: { "AET": ["AET", "Host/IP", Port] }
+      - 'ORTHANC__DICOM_MODALITIES={"RELAYPACS":["RELAYPACS","backend",8003]}'
     volumes:
       - orthanc_data:/var/lib/orthanc/db
 
@@ -90,6 +117,77 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
 
+  # Redis for Caching and Background Tasks
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Prometheus - Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    restart: unless-stopped
+
+  # Grafana - Metrics Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # PostgreSQL Exporter - Database Metrics
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: postgres-exporter
+    ports:
+      - "9187:9187"
+    environment:
+      - DATA_SOURCE_NAME=postgresql://relaypacs:relaypacs@postgres:5432/relaypacs?sslmode=disable
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # Redis Exporter - Cache Metrics
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: redis-exporter
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+
   dcm4chee:
     image: dcm4che/dcm4chee-arc-psql:5.34.2
     ports:
@@ -103,7 +201,7 @@ services:
       - DB_NAME=pacsdb
       - DB_USER=pacs
       - DB_PASSWORD=pacs
-      - AUTH_SERVER_URL=http://dcm4chee:8081/auth
+      - AUTH_SERVER_URL=http://dcm4chee:8080/auth
     depends_on:
       - ldap
       - db
@@ -125,3 +223,7 @@ volumes:
   ldap_config:
   db_data:
   dcm4che_data:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:

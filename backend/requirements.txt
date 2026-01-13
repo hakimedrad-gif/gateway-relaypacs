@@ -10,6 +10,10 @@ pydantic-settings==2.12.0
 python-dotenv==1.2.1
 slowapi==0.1.9
 email-validator==2.3.0
+asyncpg
+pyotp
+qrcode
+redis
 
 # Database
 sqlalchemy==2.0.36
@@ -38,3 +42,9 @@ black==25.12.0
 mypy==1.19.1
 reportlab==4.2.5
 sse-starlette==2.2.1
+
+# Error Monitoring
+sentry-sdk[fastapi]==2.25.1
+
+# Monitoring/Metrics
+prometheus-fastapi-instrumentator==7.0.0
