@@ -18,14 +18,15 @@ export const Ready: Story = {
   args: {
     report: {
       id: '1',
+      upload_id: 'upload-1',
+      user_id: 'user-1',
       study_instance_uid: '1.2.840.113619.2.55.3.42710457.123.456.789',
       status: ReportStatus.READY,
       created_at: date,
       updated_at: date,
       radiologist_name: 'Dr. Jane Smith',
       report_url: 'https://example.com/report.pdf',
-      clinic_id: 'clinic-1',
-      report_content: 'Normal study',
+      report_text: 'Normal study',
     },
     onView: (id) => console.log('View', id),
     onDownload: (id) => console.log('Download', id),
@@ -38,14 +39,14 @@ export const Pending: Story = {
   args: {
     report: {
       id: '2',
+      upload_id: 'upload-2',
+      user_id: 'user-1',
       study_instance_uid: '1.2.840.113619.2.55.3.98765432.123.456.789',
       status: ReportStatus.PENDING,
       created_at: date,
       updated_at: date,
-      clinic_id: 'clinic-1',
     },
     onView: (id) => console.log('View', id),
     onDownload: (id) => console.log('Download', id),
   },
 };
-

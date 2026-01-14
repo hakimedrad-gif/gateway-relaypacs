@@ -34,19 +34,21 @@ class UploadSession:
         self.expires_at = self.created_at + timedelta(minutes=settings.upload_token_expire_minutes)
         self.files: dict[str, dict[str, Any]] = {}  # Track chunks per file
 
-    def register_file_chunk(self, file_id: str, chunk_index: int, chunk_size: int, checksum: str | None = None) -> None:
+    def register_file_chunk(
+        self, file_id: str, chunk_index: int, chunk_size: int, checksum: str | None = None
+    ) -> None:
         """Register a chunk for a file, optionally with checksum for integrity validation."""
         if file_id not in self.files:
             self.files[file_id] = {
                 "chunks": set(),
                 "checksums": {},  # Map of chunk_index -> checksum
-                "complete": False
+                "complete": False,
             }
 
         if chunk_index not in self.files[file_id]["chunks"]:
             self.files[file_id]["chunks"].add(chunk_index)
             self.uploaded_bytes += chunk_size
-            
+
             # Store checksum if provided
             if checksum:
                 self.files[file_id]["checksums"][chunk_index] = checksum
@@ -80,7 +82,7 @@ class UploadManager:
                 fid: {
                     "chunks": list(info["chunks"]),
                     "checksums": info.get("checksums", {}),
-                    "complete": info["complete"]
+                    "complete": info["complete"],
                 }
                 for fid, info in session.files.items()
             },
@@ -128,12 +130,12 @@ class UploadManager:
         user_id: str,
         metadata: StudyMetadata,
         total_files: int,
-        total_size: int,
+        total_size_bytes: int,
         clinical_history: str | None = None,
     ) -> UploadInitResponse:
         upload_id = uuid4()
         session = UploadSession(
-            str(upload_id), user_id, total_files, total_size, metadata, clinical_history
+            str(upload_id), user_id, total_files, total_size_bytes, metadata, clinical_history
         )
         self._sessions[str(upload_id)] = session
         self._save_session(session)

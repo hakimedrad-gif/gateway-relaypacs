@@ -27,3 +27,12 @@ test_temp_uploads/
 .coverage
 coverage/
 frontend/coverage/
+
+# Database
+*.db
+*.sqlite3
+
+# Test Artifacts
+frontend/test_output.txt
+frontend/playwright-report/
+frontend/test-results/

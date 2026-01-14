@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.models.user import TokenRevokeRequest
 
 router = APIRouter()
 
@@ -12,7 +13,7 @@ revoked_tokens: set[str] = set()
 
 
 @router.post("/logout")
-async def logout(token: str, db: Session = Depends(get_db)) -> dict[str, str]:
+async def logout(payload: TokenRevokeRequest, db: Session = Depends(get_db)) -> dict[str, str]:
     """
     Logout user and revoke their access token.
 
@@ -23,7 +24,7 @@ async def logout(token: str, db: Session = Depends(get_db)) -> dict[str, str]:
         Success message
     """
     # Add token to revocation list
-    revoked_tokens.add(token)
+    revoked_tokens.add(payload.token)
 
     return {"message": "Successfully logged out"}
 

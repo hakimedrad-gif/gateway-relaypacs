@@ -4,7 +4,7 @@ def test_upload_chunk_larger_than_expected(
     """Test uploading a chunk larger than the declared chunk size"""
     init_payload = {
         "study_metadata": {
-            "patient_name": "Test Patient",
+            "patient_name": "Edge Case Patient",
             "modality": "CT",
             "study_date": "2023-01-01",
         },
@@ -34,7 +34,7 @@ def test_upload_duplicate_chunk(client, auth_headers, clean_storage, clean_uploa
     """Test uploading the same chunk twice (idempotency)"""
     init_payload = {
         "study_metadata": {
-            "patient_name": "Test Patient",
+            "patient_name": "Edge Duplicate",
             "modality": "CT",
             "study_date": "2023-01-01",
         },
@@ -90,7 +90,7 @@ def test_upload_complete_with_missing_chunks(
     """Test completing upload when not all chunks have been received"""
     init_payload = {
         "study_metadata": {
-            "patient_name": "Test Patient",
+            "patient_name": "Edge Missing",
             "modality": "CT",
             "study_date": "2023-01-01",
         },
@@ -131,7 +131,7 @@ def test_metadata_validation_missing_required_fields(client, auth_headers):
     # Missing required fields
     invalid_payload = {
         "study_metadata": {
-            "patient_name": "Test Patient"
+            "patient_name": "Edge Case Patient"
             # Missing modality and study_date
         },
         "total_files": 1,
@@ -146,7 +146,7 @@ def test_metadata_validation_invalid_modality(client, auth_headers):
     """Test that invalid modality values are rejected"""
     invalid_payload = {
         "study_metadata": {
-            "patient_name": "Test Patient",
+            "patient_name": "Edge Invalid Mod",
             "modality": "INVALID_MODALITY",  # Invalid modality
             "study_date": "2023-01-01",
         },

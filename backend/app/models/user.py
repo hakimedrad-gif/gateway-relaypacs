@@ -23,15 +23,15 @@ class UserCreate(UserBase):
         ...,
         min_length=12,
         max_length=128,
-        description="Password must be at least 12 characters with uppercase, lowercase, digit, and special character"
+        description="Password must be at least 12 characters with uppercase, lowercase, digit, and special character",
     )
-    
+
     @field_validator("password")
     @classmethod
     def validate_password_strength(cls, v: str) -> str:
         """
         Enforce strong password requirements to prevent account compromise.
-        
+
         Requirements:
         - Minimum 12 characters (already enforced by Field)
         - At least one uppercase letter
@@ -41,18 +41,18 @@ class UserCreate(UserBase):
         """
         if not re.search(r"[A-Z]", v):
             raise ValueError("Password must contain at least one uppercase letter (A-Z)")
-        
+
         if not re.search(r"[a-z]", v):
             raise ValueError("Password must contain at least one lowercase letter (a-z)")
-        
+
         if not re.search(r"[0-9]", v):
             raise ValueError("Password must contain at least one digit (0-9)")
-        
+
         if not re.search(r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>/?]", v):
             raise ValueError(
                 "Password must contain at least one special character (!@#$%^&*()_+-=[]{}etc.)"
             )
-        
+
         return v
 
 
@@ -81,3 +81,15 @@ class TokenPair(BaseModel):
     access_token: str
     refresh_token: str | None = None
     token_type: str = "bearer"
+
+
+class TokenRefreshRequest(BaseModel):
+    """Request to refresh access token."""
+
+    refresh_token: str
+
+
+class TokenRevokeRequest(BaseModel):
+    """Request to revoke a token (logout)."""
+
+    token: str

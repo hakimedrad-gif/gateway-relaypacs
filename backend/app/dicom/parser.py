@@ -80,3 +80,41 @@ def get_dicom_preview_data(file_path: Path | str) -> dict[str, Any] | None:
         return preview
     except Exception:
         return None
+
+
+def anonymize_dicom(file_path: Path | str, output_path: Path | str | None = None) -> Path:
+    """
+    Anonymize a DICOM file by removing or replacing identifying information.
+
+    Args:
+        file_path: Path to DICOM file
+        output_path: Path to save anonymized file. If None, saves to <file_path>.anon
+
+    Returns:
+        Path to anonymized file
+    """
+    ds = pydicom.dcmread(file_path)
+
+    # Basic anonymization: Remove or replace PHI
+    ds.PatientName = "ANONYMOUS"
+    ds.PatientID = "ANON" + ds.PatientID[-4:] if hasattr(ds, "PatientID") else "ANON"
+    ds.PatientBirthDate = ""
+    ds.PatientAddress = ""
+    ds.PatientTelephoneNumbers = ""
+    ds.InstitutionName = "ANONYMOUS HOSPITAL"
+    ds.InstitutionAddress = ""
+    ds.InstitutionalDepartmentName = ""
+    ds.ReferringPhysicianName = ""
+    ds.PerformingPhysicianName = ""
+    ds.OperatorsName = ""
+
+    # Remove any private tags
+    ds.remove_private_tags()
+
+    if not output_path:
+        output_path = Path(str(file_path) + ".anon")
+    else:
+        output_path = Path(output_path)
+
+    ds.save_as(str(output_path))
+    return output_path

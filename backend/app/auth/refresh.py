@@ -4,13 +4,13 @@ from fastapi import APIRouter, HTTPException, status
 from jose import JWTError, jwt
 
 from app.auth.utils import ALGORITHM, SECRET_KEY, create_access_token, create_refresh_token
-from app.models.user import TokenPair
+from app.models.user import TokenPair, TokenRefreshRequest
 
 router = APIRouter()
 
 
 @router.post("/refresh", response_model=TokenPair)
-async def refresh_token(refresh_token: str) -> TokenPair:
+async def refresh_token(payload: TokenRefreshRequest) -> TokenPair:
     """
     Exchange a valid refresh token for a new access token and refresh token.
 
@@ -22,8 +22,8 @@ async def refresh_token(refresh_token: str) -> TokenPair:
     """
     try:
         # Verify refresh token
-        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
-        token_type = payload.get("type")
+        payload_data = jwt.decode(payload.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        token_type = payload_data.get("type")
 
         if token_type != "refresh":
             raise HTTPException(
@@ -31,7 +31,7 @@ async def refresh_token(refresh_token: str) -> TokenPair:
                 detail="Invalid token type",
             )
 
-        username: str = payload.get("sub")
+        username: str = payload_data.get("sub")
         if username is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

@@ -1,22 +1,26 @@
 """
 Test script for Redis caching functionality.
 """
+
 import asyncio
 import sys
-sys.path.insert(0, '/home/ubuntu-desk/Desktop/Teleradiology/geteway/backend')
+
+sys.path.insert(0, "/home/ubuntu-desk/Desktop/Teleradiology/geteway/backend")
 
 from app.cache.service import cache_service
+
 
 async def test_cache():
     print("=" * 60)
     print("Testing Redis Cache Service")
     print("=" * 60)
-    
+
     # Print configuration
     from app.config import get_settings
+
     settings = get_settings()
     print(f"\nRedis URL from config: {settings.redis_url}")
-    
+
     # Test 1: Connect to Redis
     print("\n[TEST 1] Connecting to Redis...")
     try:
@@ -25,7 +29,7 @@ async def test_cache():
     except Exception as e:
         print(f"✗ Failed to connect: {e}")
         return False
-    
+
     # Test 2: Set a simple string value
     print("\n[TEST 2] Setting a string value...")
     try:
@@ -34,7 +38,7 @@ async def test_cache():
     except Exception as e:
         print(f"✗ Failed to set value: {e}")
         return False
-    
+
     # Test 3: Get the string value
     print("\n[TEST 3] Getting the string value...")
     try:
@@ -47,7 +51,7 @@ async def test_cache():
     except Exception as e:
         print(f"✗ Failed to get value: {e}")
         return False
-    
+
     # Test 4: Set a dict/JSON value
     print("\n[TEST 4] Setting a JSON value...")
     try:
@@ -57,7 +61,7 @@ async def test_cache():
     except Exception as e:
         print(f"✗ Failed to set JSON: {e}")
         return False
-    
+
     # Test 5: Get the JSON value
     print("\n[TEST 5] Getting the JSON value...")
     try:
@@ -70,7 +74,7 @@ async def test_cache():
     except Exception as e:
         print(f"✗ Failed to get JSON: {e}")
         return False
-    
+
     # Test 6: Delete a key
     print("\n[TEST 6] Deleting a key...")
     try:
@@ -84,7 +88,7 @@ async def test_cache():
     except Exception as e:
         print(f"✗ Failed to delete key: {e}")
         return False
-    
+
     # Test 7: Clear prefix
     print("\n[TEST 7] Testing prefix clearing...")
     try:
@@ -92,14 +96,14 @@ async def test_cache():
         await cache_service.set("test:prefix:2", "value2", expire=60)
         await cache_service.set("test:prefix:3", "value3", expire=60)
         print("  Set 3 keys with 'test:prefix:' prefix")
-        
+
         await cache_service.clear_prefix("test:prefix:")
         print("  Cleared all keys with prefix")
-        
+
         val1 = await cache_service.get("test:prefix:1")
         val2 = await cache_service.get("test:prefix:2")
         val3 = await cache_service.get("test:prefix:3")
-        
+
         if val1 is None and val2 is None and val3 is None:
             print("✓ Successfully cleared all prefixed keys")
         else:
@@ -108,7 +112,7 @@ async def test_cache():
     except Exception as e:
         print(f"✗ Failed prefix test: {e}")
         return False
-    
+
     # Cleanup
     print("\n[CLEANUP] Cleaning up test keys...")
     try:
@@ -117,11 +121,12 @@ async def test_cache():
         print("✓ Cleanup complete, connection closed")
     except Exception as e:
         print(f"✗ Cleanup failed: {e}")
-    
+
     print("\n" + "=" * 60)
     print("ALL CACHE TESTS PASSED ✓")
     print("=" * 60)
     return True
+
 
 if __name__ == "__main__":
     result = asyncio.run(test_cache())

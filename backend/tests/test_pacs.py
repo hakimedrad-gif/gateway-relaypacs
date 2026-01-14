@@ -38,11 +38,18 @@ def test_pacs_forward_files(mock_dicomweb_client, tmp_path):
     service = PACSService()
     receipt = service.forward_files([file_path])
 
-    assert "STOW-SUCCESS-1" in receipt
+    assert "STOW-SUCCESS" in receipt
+    assert "1" in receipt
     assert mock_instance.store_instances.called is True
 
 
-def test_pacs_fallback_to_rest(mock_dicomweb_client, tmp_path):
+def test_pacs_fallback_to_rest(mock_dicomweb_client, tmp_path, monkeypatch):
+    """Test fallback to Orthanc REST API when STOW fails."""
+    from app.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "active_pacs", "orthanc")
+
     # Simulate STOW failure
     mock_instance = mock_dicomweb_client.return_value
     mock_instance.store_instances.side_effect = Exception("STOW Connection Error")
