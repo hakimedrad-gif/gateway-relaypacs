@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -7,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 
 from app.auth.dependencies import get_current_user, get_upload_token
+from app.db.database import get_db
 from app.dicom.service import dicom_service
 from app.limiter import limiter
 from app.models.upload import (
@@ -16,7 +18,6 @@ from app.models.upload import (
     UploadInitResponse,
     UploadStatusResponse,
 )
-from app.notifications.service import notification_service
 from app.pacs.service import pacs_service
 from app.storage.service import storage_service
 from app.upload.analytics import export_stats_to_csv, generate_trend_data, stats_manager
@@ -32,17 +33,19 @@ async def initialize_upload(
     request: Request,
     payload: UploadInitRequest,
     user: dict[str, Any] = Depends(get_current_user),
-    db: Any = Depends("app.db.database:get_db"),  # Dynamic import to avoid circular dep issues
+    db: Any = Depends(get_db),
 ) -> UploadInitResponse:
     """Initialize a new upload session"""
-    from datetime import UTC, datetime, timedelta
     import hashlib
-    from sqlalchemy.orm import Session
-    from app.db.models import StudyUpload
+    from datetime import UTC, datetime, timedelta
+
     from fastapi import status
+    from sqlalchemy.orm import Session
+
+    from app.db.models import StudyUpload
 
     session_db: Session = db  # Type hint
-    
+
     # 1. Check for duplicates
     # Hash StudyInstanceUID + PatientID to find previous uploads
     # In real world, we'd extract these from DICOM, but here we use metadata provided by user
@@ -56,33 +59,34 @@ async def initialize_upload(
     # We might need to rely on combination of Patient Name + Study Date + Modality + Description as a proxy hash?
     # OR update StudyMetadata to include UIDs (which frontend might not have before parsing?).
     # Frontend usually parses DICOM tags before init.
-    # Let's assume for now we use the available metadata for the hash proxy 
+    # Let's assume for now we use the available metadata for the hash proxy
     # OR we add UIDs to the request if available.
-    
+
     # Looking at frontend code (single-file-upload.spec.ts), it extracts metadata.
     # But `StudyMetadata` class in backend `models/upload.py` only lists descriptive fields.
     # To implement P2-5 correctly, we should ideally add StudyInstanceUID/PatientID to the Init request.
     # But changing the request schema might break things if frontend doesn't send it.
-    
+
     # Workaround: Use PatientName + StudyDate + Modality as a "soft" duplicate check.
-    # Or strict check if we assume UIDs are added. 
+    # Or strict check if we assume UIDs are added.
     # Let's check if I can modify StudyMetadata.
-    
+
     # Actually, let's implement the logic using available fields for now to fulfill the requirement "Add Duplicate Study Detection"
     # using what we have, or construct the hash from what we have.
     # "Hash StudyInstanceUID + PatientID" was the recommendation.
     # If I can't get UIDs, I will use: PatientName + StudyDate + Modality.
-    
+
     study_identifiers = f"{payload.study_metadata.patient_name}|{payload.study_metadata.study_date}|{payload.study_metadata.modality}"
     study_hash = hashlib.sha256(study_identifiers.encode()).hexdigest()
-    
+
     # Check if uploaded in last 30 days
     cutoff = datetime.now(UTC) - timedelta(days=30)
-    existing = session_db.query(StudyUpload).filter(
-        StudyUpload.study_hash == study_hash,
-        StudyUpload.created_at > cutoff
-    ).first()
-    
+    existing = (
+        session_db.query(StudyUpload)
+        .filter(StudyUpload.study_hash == study_hash, StudyUpload.created_at > cutoff)
+        .first()
+    )
+
     if existing and not payload.force_upload:
         # Return 409 Conflict with details
         raise HTTPException(
@@ -90,8 +94,8 @@ async def initialize_upload(
             detail={
                 "message": f"Potential duplicate study detected. Similar study uploaded on {existing.created_at.strftime('%Y-%m-%d')}.",
                 "code": "DUPLICATE_STUDY",
-                "upload_id": existing.upload_id
-            }
+                "upload_id": existing.upload_id,
+            },
         )
 
     # Proactive cleanup of expired sessions
@@ -105,24 +109,24 @@ async def initialize_upload(
         payload.total_size_bytes,
         payload.clinical_history,
     )
-    
+
     # Record this upload in DB
     try:
         new_upload = StudyUpload(
             upload_id=str(response.upload_id),
-            study_instance_uid="PENDING", # We don't have it yet
-            patient_id=payload.study_metadata.patient_name, # Proxy
+            study_instance_uid="PENDING",  # We don't have it yet
+            patient_id=payload.study_metadata.patient_name,  # Proxy
             study_hash=study_hash,
-            user_id=None, # We have username "sub" but not UUID here easily without query. 
-                          # User table has UUID. 'user' dict has 'sub' (username).
-                          # Skip user linkage for now or query it.
+            user_id=None,  # We have username "sub" but not UUID here easily without query.
+            # User table has UUID. 'user' dict has 'sub' (username).
+            # Skip user linkage for now or query it.
         )
         session_db.add(new_upload)
         session_db.commit()
     except Exception as e:
         logger.error(f"Failed to record upload stats: {e}")
         # Don't fail the upload just because stat recording failed
-    
+
     return response
 
 
@@ -138,7 +142,6 @@ async def upload_chunk(
     """
     Upload a binary chunk.
     Expects raw binary body (application/octet-stream).
-    Using Request.stream() to read body directly.
     """
     # Verify token scope matches upload_id
     if token.get("sub") != str(upload_id):
@@ -177,7 +180,7 @@ async def upload_chunk(
         raise HTTPException(status_code=400, detail="Empty body")
 
     received_bytes = len(body)
-    
+
     # Calculate MD5 checksum for integrity validation
     chunk_checksum = hashlib.md5(body).hexdigest()
 
@@ -212,7 +215,9 @@ async def upload_chunk(
             )
 
     # Register chunk with checksum for integrity validation during merge
-    session.register_file_chunk(file_id, chunk_index, received_bytes if not chunk_exists else 0, chunk_checksum)
+    session.register_file_chunk(
+        file_id, chunk_index, received_bytes if not chunk_exists else 0, chunk_checksum
+    )
     upload_manager.update_session(session)  # Persist state
 
     if chunk_exists:
@@ -237,7 +242,6 @@ async def complete_upload(  # noqa: PLR0912, PLR0915
 ) -> UploadCompleteResponse:
     """
     Finalize the upload.
-    Triggers file merging and processing.
     """
     if token.get("sub") != str(upload_id):
         raise HTTPException(status_code=403, detail="Token mismatch")
@@ -266,10 +270,10 @@ async def complete_upload(  # noqa: PLR0912, PLR0915
         try:
             # Get total chunks for this file (highest index + 1)
             total_chunks = max(file_data["chunks"]) + 1
-            
+
             # Get checksums for validation (if available)
             checksums = file_data.get("checksums", {})
-            
+
             # Merge chunks with checksum validation
             final_path = await storage_service.merge_chunks(
                 str(upload_id), file_id, total_chunks, checksums

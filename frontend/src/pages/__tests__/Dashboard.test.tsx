@@ -1,38 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import Dashboard from '../Dashboard';
+import { Dashboard } from '../Dashboard';
 
-// Mock API calls
+// Mock the API service
 vi.mock('../../services/api', () => ({
-  default: {
-    get: vi.fn().mockResolvedValue({ 
-      data: {
-        total_uploads: 150,
-        successful_uploads: 145,
-        failed_uploads: 5,
-        total_files: 500,
-        total_size_mb: 2048,
-      }
+  uploadApi: {
+    getStats: vi.fn().mockResolvedValue({
+      total_uploads: 150,
+      successful_uploads: 145,
+      failed_uploads: 5,
+      modality: { ct: 80, mr: 45, cr: 25 },
+      service_level: { routine: 100, emergency: 50 },
+      last_updated: '2023-01-01T12:00:00Z',
     }),
+    getTrendData: vi.fn().mockResolvedValue({ data: [] }),
+    exportStatsCSV: vi.fn().mockResolvedValue(new Blob(['test'], { type: 'text/csv' })),
   },
 }));
 
-// Mock hooks
-vi.mock('../../hooks/useAuth', () => ({
-  useAuth: () => ({
-    token: 'mock-token',
-    isAuthenticated: true,
-  }),
+// Mock components that might cause issues in jsdom or need complex setup
+vi.mock('../../components/TrendChart', () => ({
+  TrendChart: () => <div data-testid="trend-chart" />,
 }));
-
-const renderDashboard = () => {
-  return render(
-    <BrowserRouter>
-      <Dashboard />
-    </BrowserRouter>
-  );
-};
 
 describe('Dashboard Page', () => {
   beforeEach(() => {
@@ -40,45 +29,33 @@ describe('Dashboard Page', () => {
   });
 
   it('renders dashboard header', async () => {
-    renderDashboard();
-    
-    await waitFor(() => {
-      expect(screen.getByText(/Analytics/i)).toBeInTheDocument();
-    });
+    render(<Dashboard />);
+
+    expect(screen.getByText(/Analytics Dashboard/i)).toBeInTheDocument();
   });
 
-  it('displays period filter buttons', async () => {
-    renderDashboard();
-    
-    await waitFor(() => {
-      const periodButtons = ['1W', '2W', '1M', '3M', '6M', 'ALL'];
-      periodButtons.forEach(period => {
-        expect(screen.getByRole('button', { name: period })).toBeInTheDocument();
-      });
+  it('displays period filter buttons', () => {
+    render(<Dashboard />);
+
+    const periods = ['1W', '2W', '1M', '3M', '6M', 'ALL'];
+    periods.forEach((p) => {
+      expect(screen.getByText(p)).toBeInTheDocument();
     });
   });
 
   it('changes period filter on click', async () => {
-    renderDashboard();
-    
-    await waitFor(() => {
-      const monthButton = screen.getByRole('button', { name: '1M' });
-      fireEvent.click(monthButton);
-      
-      // Button should have active styling
-      expect(monthButton.className).toContain('bg-');
-    });
+    const { uploadApi } = await import('../../services/api');
+    render(<Dashboard />);
+
+    const monthButton = screen.getByText('1M');
+    fireEvent.click(monthButton);
+
+    expect(uploadApi.getStats).toHaveBeenCalledWith('1m');
   });
 
-  it('renders export button', async () => {
-    renderDashboard();
-    
-    await waitFor(() => {
-      const exportButton = screen.queryByRole('button', { name: /Export|CSV|Download/i });
-      // Export button may or may not be present depending on data
-      if (exportButton) {
-        expect(exportButton).toBeInTheDocument();
-      }
-    });
+  it('renders export button', () => {
+    render(<Dashboard />);
+
+    expect(screen.getByText(/Export CSV/i)).toBeInTheDocument();
   });
 });

@@ -20,7 +20,7 @@ async def test_cleanup_on_completion(monkeypatch):
     upload_id = uuid4()
     # Mock session
     metadata = StudyMetadata(patient_name="Test", study_date="20230101", modality="CT")
-    session = UploadSession(str(upload_id), 1, 100, metadata)
+    session = UploadSession(str(upload_id), "test_user", 1, 100, metadata)
     upload_manager._sessions[str(upload_id)] = session
 
     # Mock token
@@ -64,11 +64,11 @@ async def test_session_expiration_cleanup(tmp_path):
     metadata = StudyMetadata(patient_name="Test", study_date="20230101", modality="CT")
 
     # 1. Create a regular session
-    await manager.create_session(metadata, 1, 100)
+    await manager.create_session("test_user", metadata, 1, 100)
 
     # 2. Create an expired session manually
     expired_id = str(uuid4())
-    expired_session = UploadSession(expired_id, 1, 100, metadata)
+    expired_session = UploadSession(expired_id, "test_user", 1, 100, metadata)
     from datetime import UTC, datetime, timedelta
 
     expired_session.expires_at = datetime.now(UTC) - timedelta(seconds=1)

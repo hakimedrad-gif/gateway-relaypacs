@@ -63,3 +63,51 @@ def export_stats_to_csv(stats: dict[str, Any]) -> str:
         writer.writerow(["Service Level", level, count])
 
     return output.getvalue()
+
+
+class StatsManager:
+    """
+    Simple in-memory stats manager for dashboard analytics.
+    In production, this would aggregate data from the database.
+    """
+
+    def __init__(self) -> None:
+        self._stats: dict[str, Any] = {
+            "total_uploads": 0,
+            "failed_uploads": 0,
+            "successful_uploads": 0,
+            "modality": {},
+            "service_level": {},
+        }
+
+    def record_upload(self, modality: str, service_level: str, status: str = "success") -> None:
+        """Record statistics for a completed upload."""
+        self._stats["total_uploads"] += 1
+
+        if status == "success":
+            self._stats["successful_uploads"] += 1
+        elif status == "failed":
+            self._stats["failed_uploads"] += 1
+
+        if modality:
+            m_key = modality.lower()
+            current = self._stats["modality"].get(m_key, 0)
+            self._stats["modality"][m_key] = current + 1
+
+        if service_level:
+            s_key = service_level.lower()
+            current = self._stats["service_level"].get(s_key, 0)
+            self._stats["service_level"][s_key] = current + 1
+
+    def get_stats(self, period: str = "7d") -> dict[str, Any]:
+        """Get aggregated stats for the specified period."""
+        stats = self._stats.copy()
+        stats["period"] = period
+        import datetime
+
+        stats["last_updated"] = datetime.datetime.now().isoformat()
+        return stats
+
+
+# Singleton instance
+stats_manager = StatsManager()

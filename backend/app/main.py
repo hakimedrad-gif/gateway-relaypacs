@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
-from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -20,51 +19,69 @@ from app.upload.router import router as upload_router
 settings = get_settings()
 
 from contextlib import asynccontextmanager
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+try:
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+except ImportError:
+    AsyncIOScheduler = None
+
 from app.tasks.cleanup import cleanup_orphaned_uploads
 
 # Initialize scheduler
-scheduler = AsyncIOScheduler()
+scheduler = None
+if AsyncIOScheduler:
+    scheduler = AsyncIOScheduler()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup:
     # 1. Initialize Sentry
     if settings.sentry_dsn:
-        import sentry_sdk
-        from sentry_sdk.integrations.fastapi import FastApiIntegration
-        from sentry_sdk.integrations.starlette import StarletteIntegration
-        sentry_sdk.init(
-            dsn=settings.sentry_dsn,
-            environment=settings.sentry_environment,
-            traces_sample_rate=settings.sentry_traces_sample_rate,
-            integrations=[
-                StarletteIntegration(transaction_style="endpoint"),
-                FastApiIntegration(transaction_style="endpoint"),
-            ],
-            send_default_pii=False,
-        )
-        print(f"✓ Sentry initialized for {settings.sentry_environment} environment")
-    
+        try:
+            import sentry_sdk
+            from sentry_sdk.integrations.fastapi import FastApiIntegration
+            from sentry_sdk.integrations.starlette import StarletteIntegration
+
+            sentry_sdk.init(
+                dsn=settings.sentry_dsn,
+                environment=settings.sentry_environment,
+                traces_sample_rate=settings.sentry_traces_sample_rate,
+                integrations=[
+                    StarletteIntegration(transaction_style="endpoint"),
+                    FastApiIntegration(transaction_style="endpoint"),
+                ],
+                send_default_pii=False,
+            )
+            print(f"✓ Sentry initialized for {settings.sentry_environment} environment")
+        except ImportError:
+            print("! Sentry configured but package not installed")
+
     # 2. Start scheduler
-    scheduler.add_job(cleanup_orphaned_uploads, 'cron', hour=2, minute=0)  # Run at 2 AM
-    scheduler.start()
-    print("✓ Scheduler started with cleanup task")
-    
+    if scheduler:
+        scheduler.add_job(cleanup_orphaned_uploads, "cron", hour=2, minute=0)  # Run at 2 AM
+        scheduler.start()
+        print("✓ Scheduler started with cleanup task")
+    else:
+        print("! APScheduler not installed, cleanup task disabled")
+
     # 3. Initialize reports database and start PACS sync
     from app.reports.pacs_sync import pacs_sync_service
+
     await pacs_sync_service.start()
     print("✓ PACS Report Sync Service started")
-    
+
     yield
-    
+
     # Shutdown:
     # 1. Stop scheduler
-    scheduler.shutdown()
-    
+    if scheduler:
+        scheduler.shutdown()
+
     # 2. Stop PACS sync
     await pacs_sync_service.stop()
     print("✓ Services stopped")
+
 
 app = FastAPI(
     title="RelayPACS API",
@@ -94,31 +111,6 @@ app.add_middleware(
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on app startup."""
-    # Initialize reports database
-    from app.reports.pacs_sync import pacs_sync_service
-
-    print("✓ Reports database initialized")
-
-    # Start PACS sync service
-    await pacs_sync_service.start()
-    print("✓ PACS Report Sync Service started")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on app shutdown."""
-    from app.reports.pacs_sync import pacs_sync_service
-
-    # Stop PACS sync service
-    await pacs_sync_service.stop()
-    print("✓ PACS Report Sync Service stopped")
-
-    print("✓ Shutting down gracefully")
 
 
 @app.get("/health")
@@ -156,8 +148,13 @@ app.include_router(reports_router, prefix="/reports", tags=["reports", "legacy"]
 app.include_router(notifications_router, prefix="/notifications", tags=["notifications", "legacy"])
 
 # Initialize Prometheus metrics endpoint
-# This exposes /metrics for Prometheus to scrape
-Instrumentator().instrument(app).expose(app)
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+
+    # This exposes /metrics for Prometheus to scrape
+    Instrumentator().instrument(app).expose(app)
+except ImportError:
+    print("! Prometheus instrumentator not installed, metrics disabled")
 
 print("✓ RelayPACS backend started successfully")
 print(f"  API docs: http://{settings.api_host}:{settings.api_port}/docs")

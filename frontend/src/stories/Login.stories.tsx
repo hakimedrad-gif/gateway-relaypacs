@@ -23,7 +23,7 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 
 export const WithPreFilledEmail: Story = {
-  play: async ({ canvasElement }) => {
+  play: async () => {
     // We could add interaction testing here later
   },
 };

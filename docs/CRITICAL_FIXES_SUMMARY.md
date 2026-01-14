@@ -25,7 +25,7 @@ SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
 ### 3. DoS via Unlimited Upload Size
 **File**: `backend/app/models/upload.py:25`
 **Problem**: No validation on `total_size_bytes`
-**Fix**: 
+**Fix**:
 ```python
 total_size_bytes: int = Field(gt=0, le=2048*1024*1024)
 ```

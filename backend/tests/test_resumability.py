@@ -16,7 +16,9 @@ async def test_session_persistence_on_restart(tmp_path):
     # For TDD, we might need to patch the persistence file path
 
     metadata = StudyMetadata(patient_name="Test Persist", study_date="20230101", modality="CT")
-    response = await manager.create_session(metadata, total_files=2, total_size=1000)
+    response = await manager.create_session(
+        "test_user", metadata, total_files=2, total_size_bytes=1000
+    )
     upload_id = response.upload_id
 
     # 2. Simulate "Restart" -> Create new manager instance
@@ -33,8 +35,7 @@ async def test_session_persistence_on_restart(tmp_path):
     assert session.metadata.patient_name == "Test Persist"
 
 
-@pytest.mark.asyncio
-async def test_idempotent_chunk_upload(client, auth_headers):
+def test_idempotent_chunk_upload(client, auth_headers):
     """Test that uploading the same chunk twice returns 200/204 and doesn't duplicate processing"""
     # Init upload
     init_data = {
@@ -79,14 +80,13 @@ async def test_idempotent_chunk_upload(client, auth_headers):
     assert status_data["uploaded_bytes"] == 512
 
 
-@pytest.mark.asyncio
-async def test_status_reports_missing_chunks(client, auth_headers):
+def test_status_reports_missing_chunks(client, auth_headers):
     """Test that status endpoint reports which chunks are missing for incomplete files"""
     # Init
     init_data = {
         "study_metadata": {
             "patient_name": "Missing Chunks",
-            "study_date": "2023",
+            "study_date": "2023-01-01",
             "modality": "OT",
         },
         "total_files": 1,

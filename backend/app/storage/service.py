@@ -18,17 +18,21 @@ class BaseStorageService:
         raise NotImplementedError()
 
     async def merge_chunks(
-        self, upload_id: str, file_id: str, total_chunks: int, checksums: dict[int, str] | None = None
+        self,
+        upload_id: str,
+        file_id: str,
+        total_chunks: int,
+        checksums: dict[int, str] | None = None,
     ) -> Path | str:
         """
         Merge chunks into final file.
-        
+
         Args:
             upload_id: Upload session ID
             file_id: File identifier
             total_chunks: Total number of chunks
             checksums: Optional dict mapping chunk_index to expected MD5 checksum
-        
+
         Raises:
             ChunkUploadError: If checksum validation fails
         """
@@ -88,22 +92,26 @@ class LocalStorageService(BaseStorageService):
         return actual_size == expected_size
 
     async def merge_chunks(
-        self, upload_id: str, file_id: str, total_chunks: int, checksums: dict[int, str] | None = None
+        self,
+        upload_id: str,
+        file_id: str,
+        total_chunks: int,
+        checksums: dict[int, str] | None = None,
     ) -> Path:
         """Merge chunks with optional checksum validation."""
         file_dir = self.base_path / str(upload_id) / str(file_id)
         final_path = file_dir / "final_file"
-        
+
         with open(final_path, "wb") as outfile:
             for i in range(total_chunks):
                 chunk_path = file_dir / f"{i}.part"
                 if not chunk_path.exists():
                     raise FileNotFoundError(f"Missing chunk {i} for file {file_id}")
-                
+
                 # Read chunk data
                 with open(chunk_path, "rb") as infile:
                     chunk_data = infile.read()
-                
+
                 # Validate checksum if provided
                 if checksums and i in checksums:
                     actual_checksum = hashlib.md5(chunk_data).hexdigest()
@@ -114,10 +122,10 @@ class LocalStorageService(BaseStorageService):
                             f"Expected: {expected_checksum}, Got: {actual_checksum}. "
                             f"File may be corrupted."
                         )
-                
+
                 # Write chunk to final file
                 outfile.write(chunk_data)
-        
+
         return final_path
 
     async def cleanup_upload(self, upload_id: str) -> None:
@@ -168,7 +176,13 @@ class S3StorageService(BaseStorageService):
         except ClientError:
             return False
 
-    async def merge_chunks(self, upload_id: str, file_id: str, total_chunks: int) -> str:
+    async def merge_chunks(
+        self,
+        upload_id: str,
+        file_id: str,
+        total_chunks: int,
+        checksums: dict[int, str] | None = None,
+    ) -> str:
         # For simplicity in MVP, we might download chunks and merge locally,
         # or use S3 multipart upload with UploadPartCopy.
         # Let's do local merge for now to ensure DICOM validation (which needs a local file)

@@ -1,7 +1,6 @@
 """Tests for authentication endpoints."""
 
 from app.auth.utils import hash_password, verify_password
-from app.db.database import SessionLocal
 from app.db.models import User
 
 
@@ -54,14 +53,14 @@ def test_password_hashing():
     assert verify_password("WrongPassword", hashed) is False
 
 
-def test_register_new_user(client):
+def test_register_new_user(client, db_session):
     """Test user registration with hashed password."""
     response = client.post(
         "/auth/register",
         json={
             "username": "testregister",
             "email": "test@register.com",
-            "password": "SecurePass123",
+            "password": "SecurePassword123!",
         },
     )
     assert response.status_code == 201
@@ -70,16 +69,12 @@ def test_register_new_user(client):
     assert "refresh_token" in data
 
     # Verify user was created in database
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.username == "testregister").first()
-        assert user is not None
-        assert user.email == "test@register.com"
-        # Verify password was hashed
-        assert user.hashed_password != "SecurePass123"
-        assert verify_password("SecurePass123", user.hashed_password)
-    finally:
-        db.close()
+    user = db_session.query(User).filter(User.username == "testregister").first()
+    assert user is not None
+    assert user.email == "test@register.com"
+    # Verify password was hashed
+    assert user.hashed_password != "SecurePassword123!"
+    assert verify_password("SecurePassword123!", user.hashed_password)
 
 
 def test_register_duplicate_username(client):
@@ -87,13 +82,17 @@ def test_register_duplicate_username(client):
     # Register first user
     client.post(
         "/auth/register",
-        json={"username": "duplicate", "email": "first@test.com", "password": "Password123"},
+        json={"username": "duplicate", "email": "first@test.com", "password": "SecurePassword123!"},
     )
 
     # Try to register with same username
     response = client.post(
         "/auth/register",
-        json={"username": "duplicate", "email": "second@test.com", "password": "Password456"},
+        json={
+            "username": "duplicate",
+            "email": "second@test.com",
+            "password": "SecurePassword456!",
+        },
     )
     assert response.status_code == 400
     assert "already exists" in response.json()["detail"]

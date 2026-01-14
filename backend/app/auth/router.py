@@ -1,6 +1,9 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
 from app.auth.utils import create_access_token, create_refresh_token, hash_password, verify_password
 from app.db.database import get_db
 from app.db.models import User as UserModel
@@ -152,25 +155,24 @@ async def refresh_upload_token(
     """
     Refresh an upload token during long uploads to prevent token expiry.
     """
-    from app.upload.service import upload_manager
     from app.auth.utils import create_upload_token
-    
+    from app.upload.service import upload_manager
+
     # Verify upload session exists and belongs to user
     session = upload_manager.get_session(upload_id)
     if not session:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Upload session not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Upload session not found"
         )
-    
+
     # Ensure strict string comparison for user authorization
     if str(session.user_id) != str(user["sub"]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to refresh this upload token"
+            detail="Not authorized to refresh this upload token",
         )
-    
+
     # Create new upload token with fresh expiry
     new_token = create_upload_token(upload_id, user["sub"])
-    
+
     return {"upload_token": new_token}
