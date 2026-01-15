@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
+import { setAuthToken, clearAuthToken } from '../services/api';
 
 const AUTH_TOKEN_KEY = 'relaypacs_auth_token';
 const REFRESH_TOKEN_KEY = 'relaypacs_refresh_token';
@@ -14,6 +15,9 @@ interface AuthState {
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>(() => {
     const savedToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    if (savedToken) {
+      setAuthToken(savedToken);
+    }
     return {
       token: savedToken,
       username: null, // Could parse from JWT if needed
@@ -34,6 +38,7 @@ export const useAuth = () => {
       if (refresh_token) {
         sessionStorage.setItem(REFRESH_TOKEN_KEY, refresh_token);
       }
+      setAuthToken(access_token);
       setAuthState({
         token: access_token,
         username,
@@ -59,6 +64,7 @@ export const useAuth = () => {
       if (refresh_token) {
         sessionStorage.setItem(REFRESH_TOKEN_KEY, refresh_token);
       }
+      setAuthToken(access_token);
       setAuthState({
         token: access_token,
         username,
@@ -92,6 +98,7 @@ export const useAuth = () => {
       username: null,
       isAuthenticated: false,
     });
+    clearAuthToken();
   }, []);
 
   // Interceptor to handle 401s
@@ -99,7 +106,11 @@ export const useAuth = () => {
     const interceptor = axios.interceptors.response.use(
       (response) => response,
       (error) => {
-        if (error.response?.status === 401) {
+        if (
+          error.response?.status === 401 &&
+          !error.config?.url?.includes('/auth/login') &&
+          !error.config?.url?.includes('/auth/register')
+        ) {
           logout();
         }
         return Promise.reject(error);

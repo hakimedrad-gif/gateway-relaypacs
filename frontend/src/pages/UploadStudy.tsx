@@ -6,6 +6,7 @@ import { uploadManager } from '../services/uploadManager';
 export const UploadStudy: React.FC = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isFolderMode, setIsFolderMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const validateFiles = (files: File[]) => {
@@ -67,7 +68,9 @@ export const UploadStudy: React.FC = () => {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold text-white">Upload Study</h2>
+        <h2 className="text-2xl font-bold text-white" data-testid="upload-study-heading">
+          Upload Study
+        </h2>
         <p className="text-slate-400">Select DICOM files or folders to begin</p>
       </div>
 
@@ -111,6 +114,25 @@ export const UploadStudy: React.FC = () => {
         </div>
       </div>
 
+      <div className="flex items-center gap-2 bg-slate-800/50 p-1 rounded-xl border border-slate-700">
+        <button
+          onClick={() => setIsFolderMode(false)}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${
+            !isFolderMode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'
+          }`}
+        >
+          Files
+        </button>
+        <button
+          onClick={() => setIsFolderMode(true)}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-all ${
+            isFolderMode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'
+          }`}
+        >
+          Folder
+        </button>
+      </div>
+
       <div
         onClick={triggerFileInput}
         className="flex flex-col items-center justify-center w-full h-64 border-2 border-slate-600 border-dashed rounded-lg cursor-pointer bg-slate-800 hover:bg-slate-700 hover:border-blue-500 transition-all group"
@@ -136,17 +158,28 @@ export const UploadStudy: React.FC = () => {
           </p>
           <p className="text-xs">DICOM, ZIP, or Folder</p>
         </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          multiple
-          onChange={handleFileSelect}
-          // @ts-expect-error - webkitdirectory is not in React types yet
-          webkitdirectory=""
-          directory=""
-          aria-label="Upload DICOM files"
-        />
+        {isFolderMode ? (
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            onChange={handleFileSelect}
+            // @ts-expect-error - webkitdirectory is not in React types yet
+            webkitdirectory=""
+            directory=""
+            aria-label="Upload DICOM folder"
+          />
+        ) : (
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            onChange={handleFileSelect}
+            aria-label="Upload DICOM files"
+          />
+        )}
       </div>
 
       <div className="w-full max-w-sm space-y-4 mt-auto sm:mt-0">

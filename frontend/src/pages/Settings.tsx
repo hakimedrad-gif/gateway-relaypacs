@@ -8,7 +8,7 @@ export const Settings: React.FC = () => {
     qr_code: string;
     provisioning_uri: string;
   } | null>(null);
-  
+
   const [verificationCode, setVerificationCode] = useState('');
   const [isEnabled, setIsEnabled] = useState(false); // Ideally fetch from user profile
   const [notification, setNotification] = useState<{
@@ -21,7 +21,7 @@ export const Settings: React.FC = () => {
       const data = await totpApi.setup();
       setSetupData(data);
       setNotification(null);
-    } catch (err) {
+    } catch {
       setNotification({ type: 'error', message: 'Failed to start 2FA setup' });
     }
   };
@@ -36,7 +36,7 @@ export const Settings: React.FC = () => {
         setVerificationCode('');
         setNotification({ type: 'success', message: 'Two-Factor Authentication enabled!' });
       }
-    } catch (err) {
+    } catch {
       setNotification({ type: 'error', message: 'Invalid code. Please try again.' });
     }
   };
@@ -46,7 +46,7 @@ export const Settings: React.FC = () => {
       await totpApi.disable();
       setIsEnabled(false);
       setNotification({ type: 'success', message: 'Two-Factor Authentication disabled.' });
-    } catch (err) {
+    } catch {
       setNotification({ type: 'error', message: 'Failed to disable 2FA' });
     }
   };
@@ -54,18 +54,19 @@ export const Settings: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto p-6 md:p-8">
       <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Settings</h1>
-      
+
       {notification && (
         <div className="mb-4">
           <NotificationToast
             notification={{
               id: 'settings-toast',
               user_id: 'current',
-              notification_type: notification.type === 'success' ? 'upload_complete' : 'upload_failed',
+              notification_type:
+                notification.type === 'success' ? 'upload_complete' : 'upload_failed',
               title: notification.type === 'success' ? 'Success' : 'Error',
               message: notification.message,
               is_read: false,
-              created_at: new Date().toISOString()
+              created_at: new Date().toISOString(),
             }}
             onDismiss={() => setNotification(null)}
           />
@@ -74,13 +75,16 @@ export const Settings: React.FC = () => {
 
       <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6">
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Security</h2>
-        
+
         <div className="flex flex-col gap-6">
           <div className="flex items-start justify-between border-b border-slate-200 dark:border-slate-700 pb-6">
             <div>
-              <h3 className="font-medium text-slate-900 dark:text-white">Two-Factor Authentication (2FA)</h3>
+              <h3 className="font-medium text-slate-900 dark:text-white">
+                Two-Factor Authentication (2FA)
+              </h3>
               <p className="text-sm text-slate-500 mt-1">
-                Add an extra layer of security to your account using TOTP apps (Google Authenticator, Authy).
+                Add an extra layer of security to your account using TOTP apps (Google
+                Authenticator, Authy).
               </p>
             </div>
             {isEnabled ? (
@@ -105,7 +109,7 @@ export const Settings: React.FC = () => {
           {setupData && (
             <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700 animate-in fade-in slide-in-from-top-2">
               <h3 className="font-medium text-slate-900 dark:text-white mb-4">Setup 2FA</h3>
-              
+
               <div className="flex flex-col md:flex-row gap-8">
                 <div className="flex-shrink-0">
                   <div className="bg-white p-2 rounded-lg inline-block">
@@ -123,7 +127,9 @@ export const Settings: React.FC = () => {
                       <input
                         type="text"
                         value={verificationCode}
-                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        onChange={(e) =>
+                          setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                        }
                         placeholder="000 000"
                         className="flex-1 max-w-[200px] px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-center tracking-widest"
                       />
@@ -138,7 +144,8 @@ export const Settings: React.FC = () => {
                   </div>
 
                   <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-sm rounded-md">
-                    <strong>Note:</strong> If you cannot scan the QR code, you cannot proceed. We do not display the secret key for security reasons.
+                    <strong>Note:</strong> If you cannot scan the QR code, you cannot proceed. We do
+                    not display the secret key for security reasons.
                   </div>
                 </div>
               </div>

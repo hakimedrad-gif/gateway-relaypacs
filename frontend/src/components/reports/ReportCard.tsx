@@ -61,7 +61,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              Study: {report.study_instance_uid.slice(0, 20)}...
+              {report.patient_name || `Study: ${report.study_instance_uid.slice(0, 20)}...`}
             </h3>
             <p className="text-sm text-gray-600">Uploaded: {formatDate(report.created_at)}</p>
           </div>

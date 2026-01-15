@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import axios from 'axios';
 import { uploadApi } from '../services/api';
 
 // Create the mock API instance objects using vi.hoisted to permit access in vi.mock

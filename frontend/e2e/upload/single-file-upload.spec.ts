@@ -215,23 +215,23 @@ test.describe('Single File Upload Workflow', () => {
     // On progress page, check for indicators
     await expect(page).toHaveURL(/\/progress\//);
 
-    // Should show progress bar or percentage
-    const progressIndicators = [
-      page.locator('[role="progressbar"]'),
-      page.getByText(/%/),
-      page.getByText(/uploading/i),
-    ];
-
-    // At least one progress indicator should be visible
-    let foundIndicator = false;
-    for (const indicator of progressIndicators) {
-      if (await indicator.isVisible().catch(() => false)) {
-        foundIndicator = true;
-        break;
-      }
-    }
-
-    expect(foundIndicator).toBe(true);
+    // Use polly to wait for at least one indicator to be visible
+    await expect
+      .poll(
+        async () => {
+          const indicators = [
+            page.locator('[role="progressbar"]'),
+            page.getByText(/%/),
+            page.getByText(/uploading/i),
+          ];
+          for (const indicator of indicators) {
+            if (await indicator.isVisible().catch(() => false)) return true;
+          }
+          return false;
+        },
+        { timeout: 10000 },
+      )
+      .toBe(true);
 
     await cleanupTestFile(testDicomPath);
   });
@@ -259,7 +259,7 @@ async function createTestDicomFile(): Promise<string> {
 
   fs.writeFileSync(filePath, buffer);
 
-  return uniqueDir;
+  return filePath;
 }
 
 /**
@@ -276,18 +276,19 @@ async function createTestTextFile(): Promise<string> {
   const filePath = path.join(uniqueDir, 'test.txt');
   fs.writeFileSync(filePath, 'This is not a DICOM file');
 
-  return uniqueDir;
+  return filePath;
 }
 
 /**
  * Helper: Cleanup test file
  */
-async function cleanupTestFile(dirPath: string): Promise<void> {
+async function cleanupTestFile(filePath: string): Promise<void> {
   try {
+    const dirPath = path.dirname(filePath);
     if (fs.existsSync(dirPath)) {
       fs.rmSync(dirPath, { recursive: true, force: true });
     }
   } catch (error) {
-    console.warn('Failed to cleanup test dir:', dirPath, error);
+    console.warn('Failed to cleanup test dir:', filePath, error);
   }
 }

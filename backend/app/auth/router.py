@@ -129,7 +129,7 @@ async def register(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
-    current_user: dict[str, str] = Depends(lambda: {"sub": "testuser"}),  # Placeholder
+    current_user: dict[str, str] = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> UserResponse:
     """

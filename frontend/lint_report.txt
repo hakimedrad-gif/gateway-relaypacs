@@ -1,0 +1,126 @@
+
+> frontend@0.0.0 lint
+> eslint .
+
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/e2e/upload/folder-upload.spec.ts
+  123:12  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  123:19  error  Empty block statement              no-empty
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/e2e/upload/multi-file-upload.spec.ts
+  119:12  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  119:19  error  Empty block statement              no-empty
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/e2e/upload/network-resilience.spec.ts
+  122:12  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  122:19  error  Empty block statement              no-empty
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/e2e/upload/upload-completion.spec.ts
+  182:12  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/e2e/upload/upload-resumption.spec.ts
+  182:12  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/components/notifications/NotificationToast.tsx
+  28:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/components/notifications/NotificationToast.tsx:28:7
+  26 |   useEffect(() => {
+  27 |     if (notification) {
+> 28 |       setToast({ ...notification, show: true });
+     |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  29 |
+  30 |       // Auto-dismiss after duration
+  31 |       const timer = setTimeout(() => {  react-hooks/set-state-in-effect
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/components/notifications/__tests__/NotificationComponents.test.tsx
+   41:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   54:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   66:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   78:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   90:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  130:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  138:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  157:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/components/reports/ReportList.tsx
+   11:27  error  'List' is defined but never used          @typescript-eslint/no-unused-vars
+   12:10  error  'AutoSizer' is defined but never used     @typescript-eslint/no-unused-vars
+   17:9   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  111:9   error  'Row' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/components/reports/__tests__/ReportComponents.test.tsx
+    5:10  error  'ReportStatus' is defined but never used  @typescript-eslint/no-unused-vars
+   46:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   55:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   63:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   76:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   99:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  120:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/hooks/__tests__/useNetworkStatus.test.ts
+  5:7  error  'mockNavigatorOnLine' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/pages/Login.tsx
+  34:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/pages/Settings.tsx
+  24:14  error  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  39:14  error  'err' is defined but never used  @typescript-eslint/no-unused-vars
+  49:14  error  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/pages/__tests__/Dashboard.test.tsx
+  2:37  error  'waitFor' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/pages/smart-upload/UploadWizard.tsx
+  187:16  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/pages/smart-upload/UploadWizard.tsx:187:16
+  185 |     // Load templates
+  186 |     const saved = localStorage.getItem('uploadTemplates');
+> 187 |     if (saved) setTemplates(JSON.parse(saved));
+      |                ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  188 |   }, []);
+  189 |
+  190 |   const handleFilesSelected = (selectedFiles: File[]) => {  react-hooks/set-state-in-effect
+  237:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/pages/smart-upload/UploadWizard.tsx:237:7
+  235 |   useEffect(() => {
+  236 |     if (study && study.status === 'complete') {
+> 237 |       setStep('complete');
+      |       ^^^^^^^ Avoid calling setState() directly within an effect
+  238 |     }
+  239 |   }, [study, step]);
+  240 |                                                                                             react-hooks/set-state-in-effect
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/test/UploadProgress.test.tsx
+  4:10  error  'MemoryRouter' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/test/api.test.ts
+  2:8  error  'axios' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/test/setup.ts
+  19:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  24:54  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 41 problems (41 errors, 0 warnings)

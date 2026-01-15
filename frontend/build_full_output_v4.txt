@@ -1,0 +1,34 @@
+
+> frontend@0.0.0 build
+> vite build
+
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 748 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                    0.51 kB │ gzip:   0.31 kB
+dist/manifest.webmanifest                          0.63 kB
+dist/assets/index-M5KAzA_E.css                    37.10 kB │ gzip:   6.80 kB
+dist/assets/notificationDB-DcOmGHIU.js             0.99 kB │ gzip:   0.44 kB
+dist/assets/uploadManager-D_M9V_wI.js              2.62 kB │ gzip:   1.15 kB
+dist/assets/Notifications-BqvAULIF.js              3.41 kB │ gzip:   1.42 kB
+dist/assets/Completion-h828K_dM.js                 4.20 kB │ gzip:   1.40 kB
+dist/assets/UploadProgress-CNr1UMyb.js             4.73 kB │ gzip:   1.79 kB
+dist/assets/UploadStudy-D9HfcoRA.js                5.38 kB │ gzip:   1.94 kB
+dist/assets/workbox-window.prod.es5-BIl4cyR9.js    5.76 kB │ gzip:   2.37 kB
+dist/assets/Settings-CmjWax6W.js                   7.06 kB │ gzip:   2.46 kB
+dist/assets/MetadataConfirmation-uXRD_1pF.js       7.46 kB │ gzip:   2.25 kB
+dist/assets/Login-DOV13yyq.js                      7.73 kB │ gzip:   2.56 kB
+dist/assets/UploadWizard-BWvj0-Sw.js              12.28 kB │ gzip:   3.68 kB
+dist/assets/Reports-BRwcT6Hp.js                   20.11 kB │ gzip:   7.27 kB
+dist/assets/Dashboard-CVG8u4fG.js                402.01 kB │ gzip: 110.59 kB
+dist/assets/index-Bm_zwC_y.js                    441.92 kB │ gzip: 145.54 kB
+✓ built in 25.87s
+
+PWA v1.2.0
+mode      generateSW
+precache  28 entries (1315.67 KiB)
+files generated
+  dist/sw.js
+  dist/workbox-959e504d.js
