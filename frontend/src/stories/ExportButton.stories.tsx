@@ -12,10 +12,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   args: {
-    data: [
-      { id: 1, name: 'Item 1' },
-      { id: 2, name: 'Item 2' },
-    ],
-    filename: 'export',
+    onExport: () => console.log('Export clicked'),
+    loading: false,
   },
 };

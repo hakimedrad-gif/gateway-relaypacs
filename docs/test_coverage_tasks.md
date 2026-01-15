@@ -16,13 +16,13 @@
 - [x] `test_pacs_service.py` - PACS integration enhancements (10h) **DONE**
 
 ### Frontend Critical Tests
-- [ ] `api.test.ts` - API service layer (16h) **HIGH PRIORITY**
-- [ ] `uploadManager.test.ts` - Upload state management (20h) **HIGH PRIORITY**
-- [ ] `db.test.ts` - IndexedDB operations (12h) **HIGH PRIORITY**
+- [x] `api.test.ts` - API service layer (16h) **DONE**
+- [x] `uploadManager.test.ts` - Upload state management (20h) **DONE**
+- [x] `db.test.ts` - IndexedDB operations (12h) **DONE**
 
 ### E2E Critical Tests
-- [ ] `e2e/upload/single-file.spec.ts` - Single file upload flow (16h) **CRITICAL**
-- [ ] `e2e/upload/resume.spec.ts` - Upload resumption (20h) **CRITICAL**
+- [x] `e2e/upload/single-file.spec.ts` - Single file upload flow (16h) **DONE**
+- [x] `e2e/upload/resume.spec.ts` - Upload resumption (20h) **DONE**
 
 **Subtotal:** 130 hours
 
@@ -34,7 +34,7 @@
 - [x] `test_auth_totp.py` - 2FA/TOTP authentication (8h) **DONE**
 - [x] `test_auth_utils.py` - JWT token utilities (6h) **DONE**
 - [x] `test_upload_analytics.py` - Upload statistics (10h) **DONE**
-- [ ] `test_dicom_service.py` - DICOM service enhancements (6h)
+- [x] `test_dicom_service.py` - DICOM service enhancements (6h) **DONE**
 - [x] `test_storage_s3.py` - S3 storage enhancements (8h) **DONE**
 - [x] `test_reports_db.py` - Reports database (8h) **DONE**
 - [x] `test_pdf_service.py` - PDF generation (6h) **DONE**
@@ -46,8 +46,8 @@
 - [x] `test_upload_pipeline_complete.py` - End-to-end upload (16h) **DONE**
 - [x] `test_auth_flow_complete.py` - Complete auth flows (10h) **DONE**
 - [x] `test_report_lifecycle.py` - Report lifecycle (12h) **DONE**
-- [ ] `test_database_migrations.py` - Migration testing (6h)
-- [ ] `test_external_services.py` - External service integration (8h)
+- [x] `test_database_migrations.py` - Migration testing (6h) **DONE**
+- [x] `test_external_services.py` - External service integration (8h) **DONE**
 
 ### Frontend Component Tests
 - [ ] `Layout.test.tsx` - Layout component (8h)
@@ -58,17 +58,19 @@
 ### Frontend Page Tests
 - [ ] `UploadStudy.test.tsx` - Upload page (14h)
 - [ ] `MetadataConfirmation.test.tsx` - Metadata page (12h)
-- [ ] `UploadProgress.test.tsx` - Progress page (14h)
-- [ ] `Reports.test.tsx` - Reports page (12h)
-- [ ] `Notifications.test.tsx` - Notifications page (10h)
-- [ ] `Settings.test.tsx` - Settings page (12h)
+- [x] `UploadStudy.test.tsx` - Upload page (14h)
+- [x] `MetadataConfirmation.test.tsx` - Metadata page (12h)
+- [x] `UploadProgress.test.tsx` - Progress page (14h)
+- [x] `Reports.test.tsx` - Reports page (12h)
+- [x] `Notifications.test.tsx` - Notifications page (10h)
+- [x] `Settings.test.tsx` - Settings page (12h)
 
 ### E2E Tests
-- [ ] `e2e/upload/multi-file.spec.ts` - Multi-file upload (16h)
-- [ ] `e2e/upload/folder-upload.spec.ts` - Folder upload (12h)
-- [ ] `e2e/upload/network-resilience.spec.ts` - Network handling (16h)
-- [ ] `e2e/auth/registration.spec.ts` - User registration (8h)
-- [ ] `e2e/auth/2fa.spec.ts` - Two-factor auth (10h)
+- [x] `e2e/upload/multi-file.spec.ts` - Multi-file upload (16h)
+- [x] `e2e/upload/folder-upload.spec.ts` - Folder upload (12h)
+- [x] `e2e/upload/network-resilience.spec.ts` - Network handling (16h)
+- [x] `e2e/auth/registration.spec.ts` - User registration (8h)
+- [x] `e2e/auth/2fa.spec.ts` - Two-factor auth (10h)
 
 **Subtotal:** 262 hours
 

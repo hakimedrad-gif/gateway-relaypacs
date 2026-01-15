@@ -59,7 +59,13 @@ export const UploadProgress: React.FC = () => {
           </div>
         </div>
 
-        <div className="relative w-full h-3 bg-slate-900 rounded-full overflow-hidden mb-3 border border-slate-700">
+        <div
+          role="progressbar"
+          aria-valuenow={progress}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          className="relative w-full h-3 bg-slate-900 rounded-full overflow-hidden mb-3 border border-slate-700"
+        >
           <div
             className={`absolute top-0 left-0 h-full transition-all duration-500 ease-out ${
               study.status === 'failed'
@@ -129,8 +135,11 @@ export const UploadProgress: React.FC = () => {
         </div>
       </div>
 
-      {study.status === 'complete' && (
-        <div className="p-6 bg-green-500/10 border-2 border-green-500/20 rounded-2xl text-center space-y-3 animate-in fade-in zoom-in duration-500">
+      {study && study.status === 'complete' && (
+        <div
+          data-testid="upload-complete-banner"
+          className="p-6 bg-green-500/10 border-2 border-green-500/20 rounded-2xl text-center space-y-3 animate-in fade-in zoom-in duration-500"
+        >
           <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-2 shdaow-lg shadow-green-900/40">
             <svg
               className="w-6 h-6 text-white"
@@ -147,8 +156,12 @@ export const UploadProgress: React.FC = () => {
             </svg>
           </div>
           <div>
-            <p className="text-green-400 font-black text-xl">Upload Successful</p>
-            <p className="text-green-500/60 text-sm">Study secured in Cloud PACS</p>
+            <p data-testid="upload-success-message" className="text-green-400 font-black text-xl">
+              Upload Successful
+            </p>
+            <p data-testid="pacs-status-message" className="text-green-500/60 text-sm">
+              Study secured in Cloud PACS
+            </p>
           </div>
           <button
             onClick={() => (window.location.href = '/')}

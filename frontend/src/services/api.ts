@@ -202,6 +202,7 @@ export type ReportStatus = (typeof ReportStatus)[keyof typeof ReportStatus];
 export interface Report {
   id: string;
   upload_id: string;
+  patient_name?: string;
   study_instance_uid: string;
   status: ReportStatus;
   radiologist_name?: string;

@@ -31,17 +31,22 @@ export const Login: React.FC = () => {
         await login(username, password, requires2FA ? totpCode : undefined);
       }
       navigate('/');
-    } catch (err: any) {
-      if (err.response?.status === 403 && err.response?.headers['x-totp-required'] === 'true') {
+    } catch (err: unknown) {
+      const error = err as { response?: { headers?: Record<string, string>; status?: number } };
+      const headers = error.response?.headers || {};
+      const totpRequired =
+        headers['x-totp-required'] === 'true' || headers['X-TOTP-Required'] === 'true';
+
+      if (error.response?.status === 403 && totpRequired) {
         setRequires2FA(true);
         setError(null);
         return;
       }
 
-      if (err.response?.status === 401) {
+      if (error.response?.status === 401) {
         setError('Invalid credentials or authentication code.');
-      } else if (err.response?.status === 400 && isRegisterMode) {
-        setError(err.response.data.detail || 'Registration failed.');
+      } else if (error.response?.status === 400 && isRegisterMode) {
+        setError((error.response as any).data?.detail || 'Registration failed.');
       } else if (!isOnline) {
         setError('No network connection. Please check your internet.');
       } else {
@@ -257,6 +262,7 @@ export const Login: React.FC = () => {
             <button
               type="submit"
               disabled={!isOnline || isLoading}
+              data-testid="login-button"
               className="w-full flex justify-center py-4 px-4 border border-transparent rounded-2xl shadow-lg text-sm font-black text-white bg-blue-600 hover:bg-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-[0.98]"
             >
               {isLoading ? (

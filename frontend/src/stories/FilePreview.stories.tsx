@@ -12,14 +12,19 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
   args: {
-    file: new File([''], 'test-image.dcm', { type: 'application/dicom' }),
-    onRemove: () => console.log('Remove file'),
+    fileName: 'test-image.dcm',
+    fileSize: 1024 * 512, // 512 KB
+    metadata: {
+      patientName: 'DOE^JOHN',
+      modality: 'CT',
+      studyDate: '2024-01-01',
+    },
   },
 };
 
-export const PDFFile: Story = {
+export const WithoutMetadata: Story = {
   args: {
-    file: new File([''], 'report.pdf', { type: 'application/pdf' }),
-    onRemove: () => console.log('Remove file'),
+    fileName: 'image-001.dcm',
+    fileSize: 1024 * 1024 * 2.5, // 2.5 MB
   },
 };

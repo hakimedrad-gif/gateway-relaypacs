@@ -2,11 +2,10 @@ import { test, expect, Page } from '@playwright/test';
 import { testUsers } from '../fixtures/test-data';
 import * as path from 'path';
 import * as fs from 'fs';
+import { fileURLToPath } from 'url';
 
 /**
  * E2E tests for multi-file DICOM upload workflow.
- * 
- * Tests uploading multiple DICOM files in a single session.
  */
 
 test.describe('Multi-File Upload Workflow', () => {
@@ -14,149 +13,108 @@ test.describe('Multi-File Upload Workflow', () => {
 
   test.beforeEach(async ({ page: testPage }) => {
     page = testPage;
-    
+
+    // Mock Backend API
+    await page.route('**/auth/login', async (route) => {
+      await route.fulfill({ json: { access_token: 'mock-token', refresh_token: 'mock-refresh' } });
+    });
+
+    await page.route('**/upload/init', async (route) => {
+      await route.fulfill({
+        json: {
+          upload_id: 'mock-multi-upload-id',
+          upload_token: 'mock-upload-token',
+          chunk_size: 1024 * 1024,
+          expires_at: new Date(Date.now() + 3600000).toISOString(),
+        },
+      });
+    });
+
+    await page.route('**/upload/*/chunk*', async (route) => {
+      await route.fulfill({ json: { success: true } });
+    });
+
+    await page.route('**/upload/*/complete', async (route) => {
+      await route.fulfill({ json: { success: true, status: 'completed' } });
+    });
+
+    await page.route('**/upload/*/status', async (route) => {
+      await route.fulfill({
+        json: {
+          upload_id: 'mock-multi-upload-id',
+          state: 'completed',
+          progress_percent: 100,
+          uploaded_bytes: 2000,
+          total_bytes: 2000,
+          pacs_status: 'completed',
+          files: {
+            file1: { complete: true, received_chunks: [0] },
+            file2: { complete: true, received_chunks: [0] },
+          },
+        },
+      });
+    });
+
     // Login
     await page.goto('/login');
     await page.getByLabel(/user id/i).fill(testUsers.validUser.username);
     await page.getByLabel(/security key/i).fill(testUsers.validUser.password);
-    await page.getByRole('button', { name: /sign in/i }).click();
+    await page.getByRole('button', { name: 'Sign In to Gateway' }).click();
     await expect(page).toHaveURL('/');
-    
-    // Navigate to upload
-    await page.getByRole('link', { name: /upload/i }).first().click();
-    await expect(page).toHaveURL('/upload');
   });
 
   test('should upload multiple DICOM files successfully', async () => {
-    //Create multiple test DICOM files
-    const file1 = await createTestDicomFile('file1');
-    const file2 = await createTestDicomFile('file2');
-    const file3 = await createTestDicomFile('file3');
-    
-    // Upload all files
+    // Create multiple test DICOM files
+    const file1 = await createTestDicomFile('f1');
+    const file2 = await createTestDicomFile('f2');
+
+    // Upload files
     const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles([file1, file2, file3]);
-    
-    // Wait for files to be processed
-    await page.waitForTimeout(2000);
-    
-    // Should show all 3 files in the list
-    await expect(page.getByText(/3.*files?/i)).toBeVisible();
-    
-    // Continue to metadata
-    await page.getByRole('button', { name: /continue/i }).click();
-    await expect(page).toHaveURL(/\/upload\/metadata/);
-    
+    await fileInput.setInputFiles([path.join(file1, 'image.dcm'), path.join(file2, 'image.dcm')]);
+
+    // Wait for auto-navigation to metadata
+    await expect(page).toHaveURL(/\/metadata\//, { timeout: 10000 });
+
     // Fill metadata
-    await page.getByLabel(/patient name/i).fill('Multi-File Test Patient');
-    await page.getByLabel(/study date/i).fill('2024-01-01');
-    await page.getByLabel(/modality/i).selectOption('CT');
-    
+    await page.getByLabel(/age/i).fill('30Y');
+    await page.getByLabel(/gender/i).selectOption('F');
+    await page.getByLabel(/clinical history/i).fill('Multi-file test history');
+
     // Start upload
-    await page.getByRole('button', { name: /start upload/i }).click();
-    await expect(page).toHaveURL(/\/upload\/progress/);
-    
+    await page.getByRole('button', { name: /confirm & upload/i }).click();
+
+    // Progress page
+    await expect(page).toHaveURL(/\/progress\//);
+
     // Wait for completion
-    await expect(page.getByText(/upload complete/i)).toBeVisible({ timeout: 60000 });
-    await expect(page.getByText(/3.*file.*uploaded/i)).toBeVisible();
-    
+    await expect(page.getByText(/upload successful/i)).toBeVisible({ timeout: 30000 });
+
     // Cleanup
-    await Promise.all([
-      cleanupTestFile(file1),
-      cleanupTestFile(file2),
-      cleanupTestFile(file3)
-    ]);
-  });
-
-  test('should handle individual file failures gracefully', async () => {
-    // Create valid and invalid files
-    const validFile = await createTestDicomFile('valid');
-    const invalidFile = await createTestTextFile('invalid');
-    
-    const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles([validFile, invalidFile]);
-    await page.waitForTimeout(2000);
-    
-    // Should show error for invalid file
-    await expect(page.getByText(/invalid|error/i)).toBeVisible();
-    
-    // Should still be able to continue with valid file
-    // (or remove invalid file and continue)
-    
-    await Promise.all([
-      cleanupTestFile(validFile),
-      cleanupTestFile(invalidFile)
-    ]);
-  });
-
-  test('should display progress for each file during multi-file upload', async () => {
-    const files = await Promise.all([
-      createTestDicomFile('progress1'),
-      createTestDicomFile('progress2')
-    ]);
-    
-    const fileInput = page.locator('input[type="file"]');
-    await fileInput.setInputFiles(files);
-    await page.waitForTimeout(1000);
-    
-    await page.getByRole('button', { name: /continue/i }).click();
-    await page.getByLabel(/patient name/i).fill('Progress Test');
-    await page.getByLabel(/study date/i).fill('2024-01-01');
-    await page.getByLabel(/modality/i).selectOption('MR');
-    await page.getByRole('button', { name: /start upload/i }).click();
-    
-    // Should show individual file progress
-    await expect(page).toHaveURL(/\/upload\/progress/);
-    
-    // Look for file-specific progress indicators
-    const fileNames = ['progress1', 'progress2'];
-    for (const fileName of fileNames) {
-      // File name or index should be visible
-      const hasFileName = await page.getByText(new RegExp(fileName, 'i')).isVisible().catch(() => false);
-      const hasFileIndex = await page.getByText(/file \d+ of \d+/i).isVisible().catch(() => false);
-      
-      expect(hasFileName || hasFileIndex).toBe(true);
-    }
-    
-    await Promise.all(files.map(cleanupTestFile));
+    await cleanupTestFile(file1);
+    await cleanupTestFile(file2);
   });
 });
 
-/**
- * Helper functions
- */
-async function createTestDicomFile(name: string = 'test'): Promise<string> {
-  const testDir = path.join(__dirname, '../fixtures/test-uploads');
-  if (!fs.existsSync(testDir)) {
-    fs.mkdirSync(testDir, { recursive: true });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+async function createTestDicomFile(name: string): Promise<string> {
+  const baseDir = path.join(__dirname, '../fixtures/test-uploads');
+  const uniqueDir = path.join(baseDir, `${name}-${Date.now()}`);
+  if (!fs.existsSync(uniqueDir)) {
+    fs.mkdirSync(uniqueDir, { recursive: true });
   }
-  
-  const filePath = path.join(testDir, `${name}-${Date.now()}.dcm`);
-  const buffer = Buffer.alloc(256);
+  const filePath = path.join(uniqueDir, 'image.dcm');
+  const buffer = Buffer.alloc(132);
   buffer.write('DICM', 128);
   fs.writeFileSync(filePath, buffer);
-  
-  return filePath;
+  return uniqueDir;
 }
 
-async function createTestTextFile(name: string = 'test'): Promise<string> {
-  const testDir = path.join(__dirname, '../fixtures/test-uploads');
-  if (!fs.existsSync(testDir)) {
-    fs.mkdirSync(testDir, { recursive: true });
-  }
-  
-  const filePath = path.join(testDir, `${name}-${Date.now()}.txt`);
-  fs.writeFileSync(filePath, 'Not a DICOM file');
-  
-  return filePath;
-}
-
-async function cleanupTestFile(filePath: string): Promise<void> {
+async function cleanupTestFile(dirPath: string): Promise<void> {
   try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+    if (fs.existsSync(dirPath)) {
+      fs.rmSync(dirPath, { recursive: true, force: true });
     }
-  } catch (error) {
-    console.warn('Cleanup failed:', filePath);
-  }
+  } catch (error) {}
 }

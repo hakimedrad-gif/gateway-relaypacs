@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
@@ -22,18 +22,20 @@ export const MetadataConfirmation: React.FC = () => {
 
   const [errors, setErrors] = useState<{ age?: string; clinicalHistory?: string }>({});
 
-  // Load initial data
+  // Load initial data - only once when study is first available
+  const initialLoadDone = React.useRef(false);
   React.useEffect(() => {
-    if (study) {
+    if (study && !initialLoadDone.current) {
       setFormData({
-        patientName: study.metadata.patientName,
-        studyDate: study.metadata.studyDate,
-        modality: study.metadata.modality,
+        patientName: study.metadata.patientName || '',
+        studyDate: study.metadata.studyDate || '',
+        modality: study.metadata.modality || '',
         age: study.metadata.age || '',
         gender: study.metadata.gender || '',
         clinicalNotes: study.metadata.studyDescription || '',
         clinicalHistory: study.metadata.clinicalHistory || '',
       });
+      initialLoadDone.current = true;
     }
   }, [study]);
 
@@ -106,11 +108,21 @@ export const MetadataConfirmation: React.FC = () => {
 
     // Start Upload
     try {
-      await uploadManager.startUpload(Number(studyId));
+      // 1. Initialize the session - this might fail (e.g. network error)
+      // If it fails, we stay on this page and show an alert.
+      await uploadManager.initializeSession(Number(studyId));
+
+      // 2. Start the background processing (chunks)
+      // We don't await this as it happens in the background while user sees progress
+      uploadManager.processUpload(Number(studyId)).catch((err) => {
+        console.error('Background upload process failed:', err);
+      });
+
+      // 3. Navigate to progress page
       navigate(`/progress/${studyId}`);
     } catch (err) {
-      console.error(err);
-      alert('Failed to start upload');
+      console.error('Failed to start upload:', err);
+      alert('Failed to start upload. Please try again.');
     }
   };
 
@@ -268,6 +280,7 @@ export const MetadataConfirmation: React.FC = () => {
         <button
           onClick={handleConfirm}
           disabled={!isFormValid}
+          data-testid="confirm-upload-button"
           className={`flex-1 py-4 px-4 text-white font-bold rounded-lg shadow-lg transition-all text-lg min-h-[44px] ${
             isFormValid
               ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/50 active:scale-95'

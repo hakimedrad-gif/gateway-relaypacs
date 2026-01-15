@@ -16,12 +16,28 @@ vi.mock('cornerstone-core', () => ({
 // Mock react-virtualized-auto-sizer
 vi.mock('react-virtualized-auto-sizer', () => ({
   __esModule: true,
-  default: ({ children }: any) => children({ height: 1000, width: 1000 }),
+  default: ({
+    children,
+  }: {
+    children: (props: { height: number; width: number }) => React.ReactNode;
+  }) => children({ height: 1000, width: 1000 }),
 }));
 
 // Mock react-window
 vi.mock('react-window', () => ({
-  FixedSizeList: ({ children, itemCount, itemData }: any) => {
+  FixedSizeList: ({
+    children,
+    itemCount,
+    itemData,
+  }: {
+    children: (props: {
+      index: number;
+      style: React.CSSProperties;
+      data: unknown;
+    }) => React.ReactNode;
+    itemCount: number;
+    itemData: unknown;
+  }) => {
     return React.createElement(
       'div',
       { 'data-testid': 'virtual-list' },

@@ -23,11 +23,11 @@ describe('useNetworkStatus Hook', () => {
       value: true,
       configurable: true,
     });
-    
+
     // Import the hook dynamically to get fresh state
     const { useNetworkStatus } = await import('../useNetworkStatus');
     const { result } = renderHook(() => useNetworkStatus());
-    
+
     expect(result.current).toBe(true);
   });
 
@@ -36,10 +36,10 @@ describe('useNetworkStatus Hook', () => {
       value: false,
       configurable: true,
     });
-    
+
     const { useNetworkStatus } = await import('../useNetworkStatus');
     const { result } = renderHook(() => useNetworkStatus());
-    
+
     expect(result.current).toBe(false);
   });
 
@@ -49,12 +49,12 @@ describe('useNetworkStatus Hook', () => {
       configurable: true,
       writable: true,
     });
-    
+
     const { useNetworkStatus } = await import('../useNetworkStatus');
     const { result } = renderHook(() => useNetworkStatus());
-    
+
     expect(result.current).toBe(true);
-    
+
     // Simulate going offline
     act(() => {
       Object.defineProperty(window.navigator, 'onLine', {
@@ -63,7 +63,7 @@ describe('useNetworkStatus Hook', () => {
       });
       window.dispatchEvent(new Event('offline'));
     });
-    
+
     await waitFor(() => {
       expect(result.current).toBe(false);
     });

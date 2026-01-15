@@ -1,0 +1,29 @@
+
+> frontend@0.0.0 build
+> vite build
+
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 748 modules transformed.
+✗ Build failed in 17.75s
+error during build:
+[vite-plugin-pwa:build] There was an error during the build:
+  src/components/reports/ReportList.tsx (11:9): "FixedSizeList" is not exported by "node_modules/react-window/dist/react-window.js", imported by "src/components/reports/ReportList.tsx".
+Additionally, handling the error in the 'buildEnd' hook caused the following error:
+  src/components/reports/ReportList.tsx (11:9): "FixedSizeList" is not exported by "node_modules/react-window/dist/react-window.js", imported by "src/components/reports/ReportList.tsx".
+file: /home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/src/components/reports/ReportList.tsx:11:9
+
+ 9: import { useNavigate } from 'react-router-dom';
+10:
+11: import { FixedSizeList as List } from 'react-window';
+             ^
+12: import { AutoSizer } from 'react-virtualized-auto-sizer';
+
+    at getRollupError (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/node_modules/rollup/dist/es/shared/parseAst.js:401:41)
+    at file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/node_modules/rollup/dist/es/shared/node-entry.js:23467:39
+    at async catchUnfinishedHookActions (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/node_modules/rollup/dist/es/shared/node-entry.js:22925:16)
+    at async rollupInternal (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/node_modules/rollup/dist/es/shared/node-entry.js:23450:5)
+    at async buildEnvironment (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/dist/node/chunks/config.js:33541:12)
+    at async Object.build (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/dist/node/chunks/config.js:33900:19)
+    at async Object.buildApp (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/dist/node/chunks/config.js:33897:153)
+    at async CAC.<anonymous> (file:///home/ubuntu-desk/Desktop/Teleradiology/geteway/frontend/node_modules/vite/dist/node/cli.js:629:3)

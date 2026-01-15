@@ -8,8 +8,12 @@ import { reportApi, type Report, ReportStatus } from '../../services/api';
 import ReportCard from './ReportCard';
 import { useNavigate } from 'react-router-dom';
 
-import { FixedSizeList as List } from 'react-window';
-import AutoSizer from 'react-virtualized-auto-sizer';
+// Use correct named imports for modern versions of these libraries
+import { List } from 'react-window';
+import { AutoSizer } from 'react-virtualized-auto-sizer';
+
+// Note: If build still fails with "not exported", we may need to use 'import pkg from' pattern
+// after ensuring tsconfig allows synthetic default imports.
 
 interface ListChildComponentProps {
   index: number;
@@ -111,17 +115,24 @@ const ReportList: React.FC = () => {
   const Row = ({ index, style, data }: ListChildComponentProps) => {
     const width = data.width;
     // Responsive grid calculation
-    const CARD_MIN_WIDTH = 300; 
+    const CARD_MIN_WIDTH = 300;
     const GAP = 24;
     const itemsPerRow = Math.max(1, Math.floor((width + GAP) / (CARD_MIN_WIDTH + GAP)));
-    
+
     const startIndex = index * itemsPerRow;
     const rowItems = reports.slice(startIndex, startIndex + itemsPerRow);
 
     return (
       <div style={style} className="flex gap-6 px-1">
         {rowItems.map((report) => (
-          <div key={report.id} style={{ flex: `0 0 calc(${100 / itemsPerRow}% - ${(GAP * (itemsPerRow - 1)) / itemsPerRow}px)` }}>
+          <div
+            key={report.id}
+            style={{
+              flex: `0 0 calc(${100 / itemsPerRow}% - ${
+                (GAP * (itemsPerRow - 1)) / itemsPerRow
+              }px)`,
+            }}
+          >
             <ReportCard
               report={report}
               onView={handleView}
@@ -191,7 +202,7 @@ const ReportList: React.FC = () => {
         <div className="flex-grow">
           <AutoSizer>
             {({ height, width }) => {
-              const CARD_MIN_WIDTH = 300; 
+              const CARD_MIN_WIDTH = 300;
               const GAP = 24;
               const itemsPerRow = Math.max(1, Math.floor((width + GAP) / (CARD_MIN_WIDTH + GAP)));
               const rowCount = Math.ceil(reports.length / itemsPerRow);
