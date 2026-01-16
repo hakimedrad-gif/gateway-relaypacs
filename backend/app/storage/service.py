@@ -172,7 +172,7 @@ class S3StorageService(BaseStorageService):
         try:
             response = self.s3.head_object(Bucket=self.bucket, Key=key)
             actual_size = response["ContentLength"]
-            return actual_size == expected_size
+            return bool(actual_size == expected_size)
         except ClientError:
             return False
 

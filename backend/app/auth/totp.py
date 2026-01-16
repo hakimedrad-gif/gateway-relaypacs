@@ -1,22 +1,25 @@
 import base64
 import io
+
 import pyotp
 import qrcode
+
 from app.config import get_settings
 
+
 class TOTPService:
-    def __init__(self):
+    def __init__(self) -> None:
         self.settings = get_settings()
         self.issuer_name = self.settings.app_name
 
     def generate_secret(self) -> str:
         """Generate a random base32 secret."""
-        return pyotp.random_base32()
+        return str(pyotp.random_base32())
 
     def get_provisioning_uri(self, secret: str, username: str) -> str:
         """Get the provisioning URI for the QR code."""
-        return pyotp.totp.TOTP(secret).provisioning_uri(
-            name=username, issuer_name=self.issuer_name
+        return str(
+            pyotp.totp.TOTP(secret).provisioning_uri(name=username, issuer_name=self.issuer_name)
         )
 
     def generate_qr_code(self, uri: str) -> str:
@@ -32,6 +35,7 @@ class TOTPService:
         if not secret:
             return False
         totp = pyotp.TOTP(secret)
-        return totp.verify(code)
+        return bool(totp.verify(code))
+
 
 totp_service = TOTPService()

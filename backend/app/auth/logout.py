@@ -3,40 +3,31 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.cache.service import cache_service
 from app.db.database import get_db
 from app.models.user import TokenRevokeRequest
 
 router = APIRouter()
 
-# In-memory token blacklist (in production, use Redis or database table)
-revoked_tokens: set[str] = set()
+# Token revocation prefix
+REVOKED_TOKEN_PREFIX = "revoked_token:"
 
 
 @router.post("/logout")
 async def logout(payload: TokenRevokeRequest, db: Session = Depends(get_db)) -> dict[str, str]:
     """
-    Logout user and revoke their access token.
-
-    Args:
-        token: The access token to revoke
-
-    Returns:
-        Success message
+    Logout user and revoke their access token using Redis.
     """
-    # Add token to revocation list
-    revoked_tokens.add(payload.token)
+    # Store token in Redis with a 24-hour expiry
+    # (matching max possible token life)
+    await cache_service.set(f"{REVOKED_TOKEN_PREFIX}{payload.token}", "1", expire=86400)
 
     return {"message": "Successfully logged out"}
 
 
-def is_token_revoked(token: str) -> bool:
+async def is_token_revoked(token: str) -> bool:
     """
-    Check if a token has been revoked.
-
-    Args:
-        token: The token to check
-
-    Returns:
-        True if token is revoked, False otherwise
+    Check if a token has been revoked in Redis.
     """
-    return token in revoked_tokens
+    result = await cache_service.get(f"{REVOKED_TOKEN_PREFIX}{token}")
+    return result is not None
