@@ -3,11 +3,12 @@ version: '3.8'
 services:
   # Backend API
   backend:
-    build: ./backend
+    image: geteway-backend.slim:latest
+    # build: ./backend
     ports:
       - "8003:8003"
-    volumes:
-      - ./backend:/app
+    # volumes:
+    #   - ./backend:/app
     environment:
       - DEBUG=true
       - SECRET_KEY=${SECRET_KEY}
@@ -31,7 +32,7 @@ services:
 
   # PostgreSQL for RelayPACS App
   postgres:
-    image: postgres:16-alpine
+    image: postgres:latest
     ports:
       - "5433:5432"
     environment:
@@ -48,10 +49,11 @@ services:
 
   # Frontend (Nginx Production Build)
   frontend:
-    build:
-      context: ./frontend
-      args:
-        - VITE_API_URL=http://localhost:8003
+    image: geteway-frontend.slim:latest
+    # build:
+    #   context: ./frontend
+    #   args:
+    #     - VITE_API_URL=http://localhost:8003
     ports:
       - "3002:80"
     depends_on:
@@ -77,7 +79,7 @@ services:
 
   # Orthanc PACS
   orthanc:
-    image: jodogne/orthanc-plugins:latest
+    image: orthancteam/orthanc:latest
     ports:
       - "8045:8042"
       - "4245:4242"
@@ -94,7 +96,7 @@ services:
 
   # dcm4che (dcm4chee-arc-light)
   ldap:
-    image: dcm4che/slapd-dcm4chee:2.6.10-34.2
+    image: dcm4che/slapd-dcm4chee:latest
     ports:
       - "389:389"
     environment:
@@ -107,7 +109,7 @@ services:
       - ldap_config:/etc/ldap/slapd.d
 
   db:
-    image: dcm4che/postgres-dcm4chee:16.8-34
+    image: dcm4che/postgres-dcm4chee:latest
     ports:
       - "5434:5432"
     environment:
@@ -119,7 +121,7 @@ services:
 
   # Redis for Caching and Background Tasks
   redis:
-    image: redis:7-alpine
+    image: redis:latest
     ports:
       - "6379:6379"
     volumes:
@@ -189,7 +191,7 @@ services:
     restart: unless-stopped
 
   dcm4chee:
-    image: dcm4che/dcm4chee-arc-psql:5.34.2
+    image: dcm4che/dcm4chee-arc-psql:latest
     ports:
       - "8081:8080"
       - "11113:11112"
@@ -208,9 +210,10 @@ services:
 
   # Lightweight dcm4che toolkit server (Ubuntu 24.04 based)
   dcm4che_toolkit:
-    build:
-      context: ./backend
-      dockerfile: dcm4che.Dockerfile
+    image: geteway-dcm4che_toolkit.slim:latest
+    # build:
+    #   context: ./backend
+    #   dockerfile: dcm4che.Dockerfile
     ports:
       - "11114:11112"
     volumes:
