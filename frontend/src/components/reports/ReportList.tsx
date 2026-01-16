@@ -3,10 +3,11 @@
  * Lists all user reports with filtering and pagination
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { reportApi, type Report, ReportStatus } from '../../services/api';
+import React, { useState } from 'react';
+import { type Report, ReportStatus } from '../../services/api';
 import ReportCard from './ReportCard';
 import { useNavigate } from 'react-router-dom';
+import { useReports } from '../../hooks/useReports';
 
 // Use correct named imports for modern versions of these libraries
 import { List } from 'react-window';
@@ -22,27 +23,10 @@ interface ListChildComponentProps {
 }
 
 const ReportList: React.FC = () => {
-  const [reports, setReports] = useState<Report[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const statusFilter = filter === 'all' ? undefined : filter;
+  const { reports, loading, downloadReport, syncReport, refresh } = useReports(statusFilter);
   const navigate = useNavigate();
-
-  const fetchReports = useCallback(async () => {
-    try {
-      setLoading(true);
-      const statusFilter = filter === 'all' ? undefined : filter;
-      const data = await reportApi.listReports(statusFilter);
-      setReports(data.reports);
-    } catch (error) {
-      console.error('Failed to fetch reports:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
-
-  useEffect(() => {
-    fetchReports();
-  }, [filter, fetchReports]);
 
   const handleView = (reportId: string) => {
     navigate(`/reports/${reportId}`);
@@ -50,7 +34,7 @@ const ReportList: React.FC = () => {
 
   const handleDownload = async (reportId: string) => {
     try {
-      const blob = await reportApi.downloadReport(reportId);
+      const blob = await downloadReport(reportId);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -67,7 +51,7 @@ const ReportList: React.FC = () => {
 
   const handlePrint = async (reportId: string) => {
     try {
-      const blob = await reportApi.downloadReport(reportId);
+      const blob = await downloadReport(reportId);
       const url = window.URL.createObjectURL(blob);
       const iframe = document.createElement('iframe');
       iframe.style.display = 'none';
@@ -86,7 +70,7 @@ const ReportList: React.FC = () => {
     try {
       if (navigator.share) {
         // Use Web Share API if available (mobile)
-        const blob = await reportApi.downloadReport(reportId);
+        const blob = await downloadReport(reportId);
         const file = new File([blob], `report_${reportId}.pdf`, { type: 'application/pdf' });
 
         await navigator.share({

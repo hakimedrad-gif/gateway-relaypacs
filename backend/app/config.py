@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # Security - REQUIRED from environment
-    secret_key: str  # Must be set in .env file
+    secret_key: str = ""  # Must be set in .env file
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     upload_token_expire_minutes: int = 30
@@ -77,7 +77,7 @@ class Settings(BaseSettings):
     sentry_environment: str = "development"
     sentry_traces_sample_rate: float = 0.1
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
     @field_validator("secret_key")
     @classmethod
@@ -107,10 +107,11 @@ class Settings(BaseSettings):
             )
 
         # Enforce minimum length
-        if len(v) < 32:
+        min_secret_key_length = 32
+        if len(v) < min_secret_key_length:
             raise ValueError(
-                f"SECRET_KEY must be at least 32 characters long (current: {len(v)}). "
-                'Generate a secure key with: python -c "import secrets; print(secrets.token_urlsafe(32))"'
+                f"SECRET_KEY must be at least {min_secret_key_length} characters long. "
+                'Run: python -c "import secrets; print(secrets.token_urlsafe(32))"'
             )
 
         return v

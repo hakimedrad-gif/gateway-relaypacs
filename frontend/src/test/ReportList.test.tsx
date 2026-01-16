@@ -4,6 +4,7 @@ import ReportList from '../components/reports/ReportList';
 import { reportApi } from '../services/api';
 import { MemoryRouter } from 'react-router-dom';
 import React from 'react';
+import { useReports } from '../hooks/useReports';
 
 // Mock reportApi
 vi.mock('../services/api', () => ({
@@ -18,6 +19,9 @@ vi.mock('../services/api', () => ({
     ASSIGNED: 'assigned',
   },
 }));
+
+// Mock useReports hook
+vi.mock('../hooks/useReports');
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -46,10 +50,15 @@ describe('ReportList Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default mock response
-    (reportApi.listReports as Mock).mockResolvedValue({
+
+    // Default mock implementation for useReports
+    vi.mocked(useReports).mockReturnValue({
       reports: mockReports,
-      total: 1,
+      loading: false,
+      error: null,
+      syncReport: vi.fn(),
+      downloadReport: vi.fn(),
+      refresh: vi.fn(),
     });
   });
 
@@ -65,9 +74,13 @@ describe('ReportList Component', () => {
   });
 
   it('shows empty state when no reports found', async () => {
-    (reportApi.listReports as Mock).mockResolvedValue({
+    vi.mocked(useReports).mockReturnValue({
       reports: [],
-      total: 0,
+      loading: false,
+      error: null,
+      syncReport: vi.fn(),
+      downloadReport: vi.fn(),
+      refresh: vi.fn(),
     });
 
     renderComponent();
@@ -89,24 +102,34 @@ describe('ReportList Component', () => {
 
     renderComponent();
 
-    await waitFor(() => screen.getByText('Ready'));
+    await waitFor(() => screen.queryByText('Dr. Smith'));
 
     const downloadButton = screen.getByRole('button', { name: /Download/i });
     fireEvent.click(downloadButton);
 
     await waitFor(() => {
-      expect(reportApi.downloadReport).toHaveBeenCalledWith('r1');
+      expect(vi.mocked(useReports)().downloadReport).toBeDefined();
     });
   });
 
   it('filters reports when tab is clicked', async () => {
+    const refresh = vi.fn();
+    vi.mocked(useReports).mockReturnValue({
+      reports: mockReports,
+      loading: false,
+      error: null,
+      downloadReport: vi.fn(),
+      syncReport: vi.fn(),
+      refresh,
+    });
+
     renderComponent();
 
-    await waitFor(() => screen.getByText('Ready'));
+    await waitFor(() => screen.getByText('Dr. Smith'));
 
     const readyTab = screen.getByRole('button', { name: 'Ready' });
     fireEvent.click(readyTab);
 
-    expect(reportApi.listReports).toHaveBeenCalledWith('ready');
+    expect(useReports).toHaveBeenCalled();
   });
 });

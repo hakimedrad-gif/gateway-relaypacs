@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Any
 
 import pydicom
 import requests
@@ -84,7 +85,7 @@ class PACSService:
 
         try:
             # Try STOW-RS with retries
-            return self._send_stow(datasets, pacs_name)
+            return str(self._send_stow(datasets, pacs_name))
 
         except Exception as e:
             logger.warning(f"STOW-RS to {pacs_name} failed after retries: {e}")
@@ -142,6 +143,73 @@ class PACSService:
 
         return f"FALLBACK-SUCCESS-{success_count}"
 
+    def retrieve_report_content(self, study_instance_uid: str) -> dict[str, Any] | None:
+        """
+        Search for and retrieve the most relevant report instance for a study.
+        Returns extracted text and radiologist information.
+        """
+        try:
+            client = self.get_active_client()
+
+            # 1. Find relevant instances
+            report_modalities = ["SR", "DOC", "PR"]
+            best_instance = None
+
+            for modality in report_modalities:
+                instances = client.search_for_instances(
+                    search_filters={"StudyInstanceUID": study_instance_uid, "Modality": modality}
+                )
+                if instances:
+                    # Pick the first one for now (ideally latest by date)
+                    best_instance = instances[0]
+                    break
+
+            if not best_instance:
+                return None
+
+            # 2. Retrieve the instance
+            series_uid = best_instance["0020000E"]["Value"][0]
+            instance_uid = best_instance["00080018"]["Value"][0]
+
+            # retrieve_metadata returns a list of dictionaries (DICOM JSON format)
+            metadata_list = client.retrieve_instance_metadata(
+                study_instance_uid=study_instance_uid,
+                series_instance_uid=series_uid,
+                sop_instance_uid=instance_uid,
+            )
+
+            if not metadata_list:
+                return None
+
+            # Convert DICOM JSON dict to pydicom Dataset for easier attribute access
+            from pydicom.dataset import Dataset
+
+            metadata: Any = metadata_list
+            ds = Dataset.from_json(metadata[0])
+
+            # 3. Extract content (simplified extraction)
+            radiologist = ds.get("ReferringPhysicianName", "Unknown")
+            if hasattr(radiologist, "family_name"):
+                radiologist = f"{radiologist.given_name} {radiologist.family_name}"
+
+            # For SR, text is often in ContentSequence. This is complex to parse fully.
+            # For now, we'll return a placeholder text indicating it was found.
+            # In a real implementation, we'd use a pydicom SR parser.
+            report_text = (
+                f"Report found in PACS (SOP Class: {ds.SOPClassUID}).\n"
+                "Direct text extraction from SR is partially implemented."
+            )
+
+            return {
+                "radiologist_name": str(radiologist),
+                "report_text": report_text,
+                "modality": ds.Modality,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to retrieve report content: {e}")
+            return None
+
     def check_for_report(self, study_instance_uid: str) -> bool:
         """
         Check if a report (SR, PDF, etc.) exists for the given study in PACS.
@@ -149,11 +217,39 @@ class PACSService:
         """
         try:
             client = self.get_active_client()
-            # Search for Structured Reports (SR) or Encapsulated PDFs
-            # For now, we return False as actual QIDO implementation is deferred.
-            # But the method MUST exist for the sync service.
+
+            # Search for instances with Modality = 'SR' (Structured Report)
+            # or document-like modalities.
+            # We filter by StudyInstanceUID to narrow it down to the specific study.
+
+            # DICOMweb query parameters for search_for_instances:
+            # {tag_name: value} or {tag_id: value}
+
+            # Common modalities for reports
+            report_modalities = ["SR", "DOC", "KO", "PR"]
+
+            for modality in report_modalities:
+                try:
+                    instances = client.search_for_instances(
+                        search_filters={
+                            "StudyInstanceUID": study_instance_uid,
+                            "Modality": modality,
+                        }
+                    )
+
+                    if instances:
+                        logger.info(
+                            f"Found {len(instances)} instances with modality {modality} "
+                            f"for study {study_instance_uid}"
+                        )
+                        return True
+                except Exception as e:
+                    logger.debug(f"Search for modality {modality} failed: {e}")
+                    continue
+
             return False
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error checking for report in PACS: {e}")
             return False
 
 

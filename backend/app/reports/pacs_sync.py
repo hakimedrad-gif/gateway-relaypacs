@@ -64,39 +64,34 @@ class PACSReportSyncService:
         """Sync all reports that are not yet ready by checking active PACS."""
         # Import here to avoid circular imports if any
         from app.pacs.service import pacs_service
-        
+
         for status in [ReportStatus.ASSIGNED, ReportStatus.PENDING]:
             conn = reports_db._get_connection()
             cursor = conn.cursor()
             # Select ID and Study Instance UID
-            cursor.execute("SELECT id, study_instance_uid FROM reports WHERE status = ?", (status.value,))
+            cursor.execute(
+                "SELECT id, study_instance_uid FROM reports WHERE status = ?", (status.value,)
+            )
             rows = cursor.fetchall()
             conn.close()
 
             for row in rows:
                 report_id = row["id"]
                 study_uid = row["study_instance_uid"]
-                
-                # Check real PACS for report existence (SR/DOC/KO/PR)
-                has_report = pacs_service.check_for_report(study_uid)
-                
-                if has_report:
-                    # Report found in PACS -> Mark as READY
-                    logger.info(f"Report found in PACS for study {study_uid}, marking as READY")
-                    
-                    # In a real scenario, we would retrieve the report content here.
-                    # For now, we update the status and point to the download endpoint which generates a PDF.
-                    # We can update the text to indicate it's from PACS.
-                    pacs_data = {
-                        "radiologist_name": "External Radiologist (PACS)",
-                        "report_text": "Report retrieved from PACS. Full content available in PDF download.",
-                        "report_url": f"/api/reports/{report_id}/download",
-                    }
-                    
+
+                # Retrieve actual report content from PACS
+                pacs_data = pacs_service.retrieve_report_content(study_uid)
+
+                if pacs_data:
+                    # Report found and retrieved -> Mark as READY
+                    logger.info(f"Report found and retrieved from PACS for study {study_uid}")
+
+                    # Update data with download URL
+                    pacs_data["report_url"] = f"/api/reports/{report_id}/download"
+
                     await self.update_report_status(report_id, ReportStatus.READY, pacs_data)
                 else:
-                    # No report yet, stay in current status
-                    # Uncomment below to keep simulation for testing if needed, but for now we want REAL checks
+                    # No report yet or retrieval failed, stay in current status
                     # logger.debug(f"No report found yet for {study_uid}")
                     pass
 

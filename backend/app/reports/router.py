@@ -1,6 +1,6 @@
 """API router for report management endpoints."""
 
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -14,11 +14,11 @@ router = APIRouter()
 
 @router.get("/", response_model=ReportListResponse)
 async def list_reports(
-    status: Optional[str] = None,
+    status: str | None = None,
     limit: int = 50,
     offset: int = 0,
     user: dict[str, Any] = Depends(get_current_user),
-):
+) -> ReportListResponse:
     """
     List all reports for the authenticated user.
 
@@ -34,11 +34,12 @@ async def list_reports(
     if status:
         try:
             status_filter = ReportStatus(status.lower())
-        except ValueError:
+        except ValueError as err:
+            valid_statuses = ", ".join([s.value for s in ReportStatus])
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid status. Must be one of: {', '.join([s.value for s in ReportStatus])}",
-            )
+                detail=f"Invalid status. Must be one of: {valid_statuses}",
+            ) from err
 
     reports = reports_db.get_reports_by_user(
         user_id=user_id, status=status_filter, limit=limit, offset=offset
@@ -55,7 +56,7 @@ async def list_reports(
 async def get_report(
     report_id: UUID,
     user: dict[str, Any] = Depends(get_current_user),
-):
+) -> Report:
     """Get specific report by ID."""
     report = reports_db.get_report_by_id(report_id)
 
@@ -69,11 +70,11 @@ async def get_report(
     return report
 
 
-@router.get("/upload/{upload_id}", response_model=Optional[Report])
+@router.get("/upload/{upload_id}", response_model=Report | None)
 async def get_report_by_upload(
     upload_id: UUID,
     user: dict[str, Any] = Depends(get_current_user),
-):
+) -> Report | None:
     """Get report associated with an upload session."""
     report = reports_db.get_report_by_upload_id(upload_id)
 
@@ -91,7 +92,7 @@ async def get_report_by_upload(
 async def download_report(
     report_id: UUID,
     user: dict[str, Any] = Depends(get_current_user),
-):
+) -> Response:
     """
     Download report as PDF.
 
@@ -128,14 +129,14 @@ async def download_report(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate PDF: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/{report_id}/sync", response_model=Report)
 async def sync_report(
     report_id: UUID,
     user: dict[str, Any] = Depends(get_current_user),
-):
+) -> Report:
     """
     Manually trigger PACS sync for a specific report.
 
@@ -150,11 +151,29 @@ async def sync_report(
     if report.user_id != user["sub"]:
         raise HTTPException(status_code=403, detail="Not authorized to sync this report")
 
-    # TODO: Implement actual PACS sync logic
-    # For now, just return the current report
-    # In production, this would:
-    # 1. Query PACS for status updates via QIDO-RS
-    # 2. Update report status if changed
-    # 3. Trigger notification if status changed
+    # Only sync if not already READY
+    if report.status == ReportStatus.READY:
+        return report
+
+    # Trigger manual sync via pacs_sync_service
+    from app.pacs.service import pacs_service
+    from app.reports.pacs_sync import pacs_sync_service
+
+    has_report = pacs_service.check_for_report(report.study_instance_uid)
+
+    if has_report:
+        # Update status
+        pacs_data = {
+            "radiologist_name": "External Radiologist (PACS)",
+            "report_text": "Report retrieved from PACS. Full content available in PDF download.",
+            "report_url": f"/api/reports/{report_id}/download",
+        }
+        await pacs_sync_service.update_report_status(str(report_id), ReportStatus.READY, pacs_data)
+
+        # Refresh report from DB
+        report = reports_db.get_report_by_id(report_id)
+
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
 
     return report
