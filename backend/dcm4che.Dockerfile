@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install dcm4che toolkit
 ENV DCM4CHE_VERSION=5.34.2
-RUN wget -v -O dcm4che.zip "https://downloads.sourceforge.net/project/dcm4che/dcm4che3/${DCM4CHE_VERSION}/dcm4che-${DCM4CHE_VERSION}-bin.zip" \
+RUN wget --tries=10 --timeout=60 -v -O dcm4che.zip "https://downloads.sourceforge.net/project/dcm4che/dcm4che3/${DCM4CHE_VERSION}/dcm4che-${DCM4CHE_VERSION}-bin.zip" \
     && unzip dcm4che.zip \
     && mv dcm4che-${DCM4CHE_VERSION} /opt/dcm4che \
     && rm dcm4che.zip
