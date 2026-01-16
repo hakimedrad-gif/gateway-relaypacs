@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Backend API
   backend:
-    image: geteway-backend.slim:latest
+    image: geteway-backend:latest
     # build: ./backend
     ports:
       - "8003:8003"
@@ -32,7 +32,7 @@ services:
 
   # PostgreSQL for RelayPACS App
   postgres:
-    image: postgres:latest
+    image: postgres:16-alpine
     ports:
       - "5433:5432"
     environment:
@@ -49,7 +49,7 @@ services:
 
   # Frontend (Nginx Production Build)
   frontend:
-    image: geteway-frontend.slim:latest
+    image: geteway-frontend:latest
     # build:
     #   context: ./frontend
     #   args:
@@ -96,7 +96,7 @@ services:
 
   # dcm4che (dcm4chee-arc-light)
   ldap:
-    image: dcm4che/slapd-dcm4chee:latest
+    image: dcm4che/slapd-dcm4chee:2.6.10-34.2
     ports:
       - "389:389"
     environment:
@@ -109,7 +109,7 @@ services:
       - ldap_config:/etc/ldap/slapd.d
 
   db:
-    image: dcm4che/postgres-dcm4chee:latest
+    image: dcm4che/postgres-dcm4chee:16.8-34
     ports:
       - "5434:5432"
     environment:
@@ -191,7 +191,7 @@ services:
     restart: unless-stopped
 
   dcm4chee:
-    image: dcm4che/dcm4chee-arc-psql:latest
+    image: dcm4che/dcm4chee-arc-psql:5.34.2
     ports:
       - "8081:8080"
       - "11113:11112"
@@ -210,7 +210,7 @@ services:
 
   # Lightweight dcm4che toolkit server (Ubuntu 24.04 based)
   dcm4che_toolkit:
-    image: geteway-dcm4che_toolkit.slim:latest
+    image: geteway-dcm4che_toolkit:latest
     # build:
     #   context: ./backend
     #   dockerfile: dcm4che.Dockerfile
