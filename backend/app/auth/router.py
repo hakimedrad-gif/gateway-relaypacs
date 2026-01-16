@@ -4,25 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
+from app.auth.totp import totp_service
 from app.auth.utils import create_access_token, create_refresh_token, hash_password, verify_password
 from app.db.database import get_db
 from app.db.models import User as UserModel
 from app.limiter import limiter
 from app.models.user import TokenPair, UserCreate, UserLogin, UserResponse
+from app.upload.service import upload_manager
 
 router = APIRouter()
-
-
-# Mock user database preserved for backward compatibility (TestingOnly)
-# TODO: Remove after all tests migrated to database
-TEST_USERS = {
-    "testuser1": "testuser@123",
-    "admin": "adminuser@123",
-    "testclinician": "testclinician@123",
-    "testradiographer": "testradiographer@123",
-    "testclinic": "testclinic@123",
-    "testradiologist": "testradiologist@123",
-}
 
 
 @router.post("/login", response_model=TokenPair)
@@ -32,12 +22,11 @@ async def login(
 ) -> TokenPair:
     """
     Authenticate user and issue access tokens.
-    Supports both database users and legacy TEST_USERS for backward compatibility.
     """
     username = credentials.username
     password = credentials.password
 
-    # Try database first
+    # Try database
     user = db.query(UserModel).filter(UserModel.username == username).first()
 
     if user and verify_password(password, user.hashed_password):
@@ -48,29 +37,21 @@ async def login(
                 detail="User account is disabled",
             )
 
-        # check for 2FA
-        if user.totp_enabled:
-            if not credentials.totp_code:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="TOTP code required",
-                    headers={"X-TOTP-Required": "true"},
-                )
+            # check for 2FA
+            if user.totp_enabled:
+                if not credentials.totp_code:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="TOTP code required",
+                        headers={"X-TOTP-Required": "true"},
+                    )
 
-            from app.auth.totp import totp_service
+                if not totp_service.verify_totp(user.totp_secret, credentials.totp_code):
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid TOTP code",
+                    )
 
-            if not totp_service.verify_totp(user.totp_secret, credentials.totp_code):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid TOTP code",
-                )
-
-        access_token = create_access_token(data={"sub": username})
-        refresh_token = create_refresh_token(data={"sub": username})
-        return TokenPair(access_token=access_token, refresh_token=refresh_token)
-
-    # Fallback to TEST_USERS for backward compatibility
-    if username in TEST_USERS and TEST_USERS[username] == password:
         access_token = create_access_token(data={"sub": username})
         refresh_token = create_refresh_token(data={"sub": username})
         return TokenPair(access_token=access_token, refresh_token=refresh_token)
@@ -144,7 +125,9 @@ async def get_current_user_info(
             detail="User not found",
         )
 
-    return UserResponse.model_validate(user)
+    import typing
+
+    return typing.cast(UserResponse, UserResponse.model_validate(user, from_attributes=True))
 
 
 @router.post("/refresh-upload-token")
@@ -156,7 +139,6 @@ async def refresh_upload_token(
     Refresh an upload token during long uploads to prevent token expiry.
     """
     from app.auth.utils import create_upload_token
-    from app.upload.service import upload_manager
 
     # Verify upload session exists and belongs to user
     session = upload_manager.get_session(upload_id)

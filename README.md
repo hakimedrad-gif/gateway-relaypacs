@@ -1,133 +1,68 @@
-# RelayPACS Gateway (MVP)
+# RelayPACS Gateway
 
-RelayPACS is a lightweight Teleradiology Gateway designed for reliable, resumed DICOM uploads and basic study triaging. This project consists of a FastAPI backend and a React/Vite frontend (PWA).
+[![Status](https://img.shields.io/badge/status-production--ready-success.svg)](#)
+[![Tech](https://img.shields.io/badge/tech-FastAPI%20|%20React%20|%20DICOM-blue.svg)](#)
+
+RelayPACS Gateway is a mission-critical medical imaging bridge designed for teleradiology workflows. It enables resilient DICOM study ingestion from remote or mobile clinical environments, providing seamless synchronization with enterprise PACS systems.
 
 ## 🚀 Key Features
 
-- **Chunked, Resumable Uploads**: Handle large DICOM files reliably over unstable networks.
-- **Clinical Metadata & Triage**: Capture Modality, Service Level (Stat/Emergency/Routine), and clinical history.
-- **Analytics Dashboard**: Real-time monitoring of upload volumes, success rates, and modality distribution with time-based filtering.
-- **Secure Authentication**: JWT-based auth with "Show Password" toggle for better UX.
-- **Permanent Mapping**: Configured for stable dev environments (Backend: 8003, Frontend: 3002).
+- **Resilient DICOM Ingestion**: Mobile-first PWA with offline queueing and background synchronization via Service Workers.
+- **Enterprise Integration**: Seamless forwarding to PACS servers (Orthanc, dcm4chee) using DICOMweb STOW-RS.
+- **Secure by Design**: HIPAA-compliant handling with JWT/TOTP authentication and centralized Redis-based token revocation.
+- **Automated DICOM Tools**: High-performance metadata extraction and validation using `pydicom` and `dcm4che`.
+- **Real-time Monitoring**: Integrated SSE notification system and Prometheus/Grafana service instrumentation.
 
-## 🛠️ Tech Stack
+## 🏗️ Architecture
 
-- **Backend**: Python 3.12+, FastAPI, SQLite (Analytics), Boto3 (Storage abstraction).
-- **Frontend**: TypeScript, React, Vite, Tailwind CSS, Dexie (IndexedDB).
+The system follows a microservices-oriented monolithic pattern, prioritizing operational simplicity while ensuring modular scalability.
 
-## 📋 Prerequisites
+- **Frontend**: React 19, TypeScript, Vite, Tailwind CSS (PWA enabled).
+- **Backend API**: FastAPI (Python 3.12), SQLAlchemy 2.0.
+- **Data Layers**: PostgreSQL 16 (Persistence), Redis 7 (Caching), MinIO (Object Storage).
+- **Middleware**: Custom security headers, CORS, and GZip compression.
 
-- **Python**: 3.12 or higher
-- **Node.js**: 18+
-- **npm**: 9+
+## 🛠️ Getting Started
 
-## ⚙️ Configuration & Ports
+### Prerequisites
 
-The application is configured to run on specific ports to ensure stability in development environments.
+- **Docker** 26.0+
+- **Docker Compose** 2.27+
+- **Python** 3.12+ (for local development)
 
-| Service  | Host      | Port | URL                          |
-| :------- | :-------- | :--- | :--------------------------- |
-| Backend  | `0.0.0.0` | 8003 | `http://localhost:8003`      |
-| Frontend | `0.0.0.0` | 3002 | `http://localhost:3002`      |
+### Quick Start
 
-> **Note**: These ports are hardcoded in `.env` files and `vite.config.ts`.
+1. **Initialize Environment**:
+   ```bash
+   cp backend/.env.production.example .env
+   ```
+   *Note: Ensure `SECRET_KEY` and `POSTGRES_PASSWORD` are set with secure values.*
 
-## 📦 Installation & Setup
+2. **Launch Services**:
+   ```bash
+   docker-compose up --build
+   ```
 
-### 1. Backend Setup
+3. **Access Application**:
+   - Frontend: `http://localhost:3000`
+   - API Docs: `http://localhost:8000/docs`
+   - PACS (Orthanc): `http://localhost:8042`
 
-```bash
-cd backend
+## 📖 Documentation
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
+Detailed technical guides are available in the `docs2/` directory:
+- [System Architecture](docs2/system%20and%20component%20architecture.md)
+- [Technical Design](docs2/technical%20design%20specification.md)
+- [PACS Integration Guide](docs2/Pacs%20integration%20setting%20guide.md)
+- [User Guide](docs2/user%20guide%20document.md)
 
-# Install dependencies
-pip install -r requirements.txt
+## 🛡️ Security & Compliance
 
-# Create .env file from template
-cp .env.example .env
+RelayPACS Gateway implements several production-grade security measures:
+- **Centralized Revocation**: Immediate token invalidation via Redis.
+- **Secrets Management**: No hardcoded credentials in Docker or source code.
+- **Secure Headers**: Strict HSTS and CSP policies implemented in middleware.
 
-# IMPORTANT: Generate a secure secret key
-python -c "import secrets; print('SECRET_KEY=' + secrets.token_urlsafe(32))"
-# Copy the output and update SECRET_KEY in backend/.env
+## ⚖️ License
 
-# The .env file should contain:
-# SECRET_KEY=<your-generated-secret-key>
-# DATABASE_URL=sqlite:///./relaypacs.db
-# API_PORT=8003
-# CORS_ORIGINS=["http://localhost:3002", "http://10.10.20.50:3002"]
-```
-
-### 2. Frontend Setup
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Create .env file
-# (Already configured)
-# VITE_API_URL=http://10.10.20.50:8003
-```
-
-## ▶️ Running the Application
-
-### Start Backend
-```bash
-cd backend
-source venv/bin/activate
-uvicorn app.main:app --port 8003 --host 0.0.0.0 --reload
-```
-
-### Start Frontend
-```bash
-cd frontend
-npm run dev -- --host 0.0.0.0
-```
-*Access the application at [http://localhost:3002](http://localhost:3002)*
-
-## 🧪 Testing
-
-### Backend Tests
-```bash
-cd backend
-# Run all tests
-pytest
-
-# Run statistics unit tests
-pytest tests/test_stats.py
-
-# Run full integration tests
-pytest tests/test_feature_integration.py
-```
-
-### Frontend Tests
-```bash
-cd frontend
-npm test
-```
-
-## 📊 Analytics & Data
-
-- **Filtering**: The Dashboard supports filtering by 1W, 2W, 1M, 3M, 6M, and ALL periods.
-
-## 📡 API Reference
-
-### Authentication
-- `POST /auth/register`: Create a new user account.
-- `POST /auth/login`: Authenticate and receive a JWT access token.
-
-### Upload Workflow
-- `POST /upload/init`: Initialize a resumable upload session.
-  - **Body**: `study_metadata` (Modality, Service Level, Patient Info), `clinical_history`.
-- `PUT /upload/{upload_id}/chunk`: Upload a binary file chunk.
-  - **Params**: `chunk_index`, `file_id`.
-- `GET /upload/{upload_id}/status`: Check upload progress and identifying missing chunks.
-- `POST /upload/{upload_id}/complete`: Finalize the upload session and trigger processing.
-
-### Analytics
-- `GET /upload/stats`: Retrieve aggregated platform statistics.
-  - **Query Param**: `period` (Optional). Values: `1w`, `2w`, `1m`, `3m`, `6m`, `all`.
+RelayPACS is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

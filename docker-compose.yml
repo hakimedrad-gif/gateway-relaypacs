@@ -10,7 +10,7 @@ services:
       - ./backend:/app
     environment:
       - DEBUG=true
-      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - SECRET_KEY=${SECRET_KEY}
       - DATABASE_URL=postgresql+psycopg2://relaypacs:relaypacs@postgres:5432/relaypacs
       - S3_ENDPOINT=http://minio:9000
       - USE_S3=true
@@ -37,7 +37,7 @@ services:
     environment:
       POSTGRES_DB: relaypacs
       POSTGRES_USER: relaypacs
-      POSTGRES_PASSWORD: relaypacs
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -171,7 +171,7 @@ services:
     ports:
       - "9187:9187"
     environment:
-      - DATA_SOURCE_NAME=postgresql://relaypacs:relaypacs@postgres:5432/relaypacs?sslmode=disable
+      - DATA_SOURCE_NAME=postgresql://relaypacs:${POSTGRES_PASSWORD}@postgres:5432/relaypacs?sslmode=disable
     depends_on:
       - postgres
     restart: unless-stopped
