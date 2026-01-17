@@ -1,78 +1,98 @@
-import * as React from 'react';
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Download, X } from 'lucide-react';
 
 export const PWAInstallPrompt: React.FC = () => {
-  interface BeforeInstallPromptEvent extends Event {
-    readonly platforms: string[];
-    readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-    prompt(): Promise<void>;
-  }
-
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isVisible, setIsVisible] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      const installEvent = e as BeforeInstallPromptEvent;
-      installEvent.preventDefault();
-      setDeferredPrompt(installEvent);
+    const handler = (e: any) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setDeferredPrompt(e);
+      // Check if user has dismissed it recently (e.g., last 7 days)
+      const dismissed = localStorage.getItem('pwa_install_dismissed');
+      if (dismissed) {
+        const timestamp = parseInt(dismissed, 10);
+        if (Date.now() - timestamp < 7 * 24 * 60 * 60 * 1000) {
+          return;
+        }
+      }
       // Only show if not already installed/standalone
       if (!window.matchMedia('(display-mode: standalone)').matches) {
-        setIsVisible(true);
+        setShowPrompt(true);
       }
     };
 
     window.addEventListener('beforeinstallprompt', handler);
 
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+    };
   }, []);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
+
+    // Show the install prompt
     deferredPrompt.prompt();
+
+    // Wait for the user to respond to the prompt
     const { outcome } = await deferredPrompt.userChoice;
+
     if (outcome === 'accepted') {
-      setIsVisible(false);
+      console.log('User accepted the install prompt');
+      setDeferredPrompt(null);
+      setShowPrompt(false);
+    } else {
+      console.log('User dismissed the install prompt');
     }
-    setDeferredPrompt(null);
   };
 
-  if (!isVisible) return null;
+  const handleDismiss = () => {
+    setShowPrompt(false);
+    // Remember dismissal
+    localStorage.setItem('pwa_install_dismissed', Date.now().toString());
+  };
+
+  if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-24 left-4 right-4 z-[60] animate-bounce-subtle">
-      <div className="bg-blue-600 text-white p-4 rounded-2xl shadow-2xl flex items-center justify-between border-b-4 border-blue-800">
+    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-5 flex items-start gap-4 z-[9999] animate-in slide-in-from-bottom-4 fade-in duration-500">
+      <div className="bg-blue-600/20 p-3 rounded-full shrink-0">
+        <Download className="text-blue-500" size={24} />
+      </div>
+
+      <div className="flex-1">
+        <h3 className="font-bold text-white text-lg mb-1">Install RelayPACS</h3>
+        <p className="text-slate-400 text-sm mb-4 leading-relaxed">
+          Get the full experience with offline access, faster uploads, and home screen access.
+        </p>
+
         <div className="flex items-center gap-3">
-          <div className="bg-white/20 p-2 rounded-lg">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-              />
-            </svg>
-          </div>
-          <div>
-            <p className="font-bold text-sm">Add to Home Screen</p>
-            <p className="text-xs text-blue-100">Install for offline clinical use</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setIsVisible(false)}
-            className="px-3 py-1.5 text-xs font-semibold hover:bg-white/10 rounded-lg transition-colors"
-          >
-            Later
-          </button>
           <button
             onClick={handleInstall}
-            className="px-4 py-1.5 bg-white text-blue-600 font-bold text-xs rounded-lg shadow-sm hover:bg-blue-50 transition-colors"
+            className="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors shadow-lg shadow-blue-900/20"
           >
-            Install
+            Install App
+          </button>
+          <button
+            onClick={handleDismiss}
+            className="px-4 py-2.5 text-slate-400 hover:text-white text-sm font-medium transition-colors"
+          >
+            Maybe Later
           </button>
         </div>
       </div>
+
+      <button
+        onClick={handleDismiss}
+        className="text-slate-500 hover:text-white transition-colors p-1"
+        aria-label="Dismiss"
+      >
+        <X size={20} />
+      </button>
     </div>
   );
 };

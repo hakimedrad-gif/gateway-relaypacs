@@ -5,6 +5,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { notificationApi, type Notification } from '../services/api';
+import { RequestBatcher } from '../utils/requestBatcher';
 
 interface UseNotificationsReturn {
   notifications: Notification[];
@@ -14,6 +15,16 @@ interface UseNotificationsReturn {
   markAllAsRead: () => Promise<void>;
   refresh: () => Promise<void>;
 }
+
+// Singleton batcher to group read receipts
+const readBatcher = new RequestBatcher<string>(
+  async (ids) => {
+    // Process in parallel since backend lacks bulk endpoint
+    // In future: POST /notifications/read-batch
+    await Promise.all(ids.map((id) => notificationApi.markAsRead(id)));
+  },
+  { maxBatchSize: 10, maxWaitTime: 2000 },
+);
 
 export const useNotifications = (): UseNotificationsReturn => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -58,15 +69,16 @@ export const useNotifications = (): UseNotificationsReturn => {
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
-      await notificationApi.markAsRead(notificationId);
+      // 1. Queue network request
+      readBatcher.add(notificationId);
 
-      // Update local state
+      // 2. Optimistic UI Update
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n)),
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
 
-      // Update IndexedDB
+      // 3. Optimistic IndexedDB Update
       try {
         const { notificationDB } = await import('../db/notificationDB');
         await notificationDB.markAsRead(notificationId);
@@ -151,7 +163,7 @@ export const useNotifications = (): UseNotificationsReturn => {
               `SSE disconnected. Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`,
             );
 
-            reconnectTimeout = setTimeout(() => {
+            reconnectTimeout = window.setTimeout(() => {
               connect();
             }, delay);
           }

@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import * as dicomParser from 'dicom-parser';
-import { uploadManager } from '../../services/uploadManager';
-import { db } from '../../db/db';
-import { useLiveQuery } from 'dexie-react-hooks';
-import type { StudyMetadata } from '../../services/api';
+
+import { Upload, FolderUp, FileText, Check, Clock, AlertCircle, Camera } from 'lucide-react';
+import { useStudy } from '../../hooks/useStudy';
+import { useNetworkQuality } from '../../hooks/useNetworkQuality';
+import { useFileSystem } from '../../hooks/useFileSystem';
+import { CameraCapture } from '../../components/CameraCapture';
+import { useTouchGestures } from '../../hooks/useTouchGestures';
 
 // --- Types ---
 
@@ -195,10 +197,22 @@ const FileDropZone = ({
 
 export const SmartUploadWizard = () => {
   const navigate = useNavigate();
+  const { reportUploadMetric } = useNetworkQuality();
+
+  // Track mount state to avoid leaks in background upload callback
+  const isMounted = useRef(true);
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   const [step, setStep] = useState<WizardStep>('files');
   const [folderMode, setFolderMode] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [studyId, setStudyId] = useState<number | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const { isSupported: isFsSupported, pickFiles, pickDirectory } = useFileSystem();
 
   // Metadata State
   const [metadata, setMetadata] = useState<Partial<StudyMetadata>>({
@@ -212,20 +226,70 @@ export const SmartUploadWizard = () => {
   // Templates State
   const [templates, setTemplates] = useState<UploadTemplate[]>([]);
 
-  // Live Query for uploading progress
-  const study = useLiveQuery(() => (studyId ? db.studies.get(studyId) : undefined), [studyId]);
+  // Live Query for uploading progress (Decrypted)
+  const study = useStudy(studyId);
 
   // Calculate progress efficiently
   const progress = study?.progress || 0;
 
+  // Load templates on mount (useState initializer would be better, but this is acceptable)
   useEffect(() => {
-    // Load templates
     const saved = localStorage.getItem('uploadTemplates');
     if (saved) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTemplates(JSON.parse(saved));
+      try {
+        const parsed = JSON.parse(saved);
+        setTemplates(parsed);
+      } catch (e) {
+        console.error('Failed to parse templates', e);
+      }
     }
   }, []);
+
+  // Touch Gestures
+  const handlers = useTouchGestures({
+    onSwipeLeft: () => {
+      if (step === 'files' && files.length > 0) {
+        if (navigator.vibrate) navigator.vibrate(50);
+        setStep('metadata');
+      }
+    },
+    onSwipeRight: () => {
+      if (step === 'metadata') {
+        if (navigator.vibrate) navigator.vibrate(50);
+        setStep('files');
+      }
+    },
+  });
+
+  const handleNativePick = async () => {
+    try {
+      let selectedFiles: File[] = [];
+      if (folderMode) {
+        selectedFiles = await pickDirectory();
+      } else {
+        selectedFiles = await pickFiles({
+          types: [
+            {
+              description: 'Medical Files',
+              accept: {
+                'application/dicom': ['.dcm'],
+                'application/zip': ['.zip'],
+                'image/jpeg': ['.jpg', '.jpeg'],
+                'image/png': ['.png'],
+              },
+            },
+          ],
+          multiple: true,
+        });
+      }
+
+      if (selectedFiles && selectedFiles.length > 0) {
+        handleFilesSelected(selectedFiles);
+      }
+    } catch (err) {
+      console.error('File system picker error:', err);
+    }
+  };
 
   const parseDicomFile = async (file: File) => {
     try {
@@ -233,66 +297,50 @@ export const SmartUploadWizard = () => {
       const byteArray = new Uint8Array(arrayBuffer);
       const dataSet = dicomParser.parseDicom(byteArray);
 
-      const patientNameString = dataSet.string('x00100010');
-      // Format name: replace carets with spaces
-      const patientName = patientNameString ? patientNameString.replace(/\^/g, ' ').trim() : '';
-
-      const studyDateString = dataSet.string('x00080020') || '';
-      // Format date: YYYYMMDD -> YYYY-MM-DD
-      let studyDate = '';
-      if (studyDateString && studyDateString.length === 8) {
-        studyDate = `${studyDateString.substring(0, 4)}-${studyDateString.substring(
-          4,
-          6,
-        )}-${studyDateString.substring(6, 8)}`;
-      }
-
-      const modality = dataSet.string('x00080060') || 'CT';
-      const patientSex = dataSet.string('x00100040') || 'O';
-      const patientAge = dataSet.string('x00101010') || '';
-
-      const studyDescription = dataSet.string('x00081030') || '';
-
-      setMetadata((prev) => ({
-        ...prev,
-        patient_name: patientName,
-        study_date: studyDate,
-        modality: modality,
-        gender: patientSex,
-        age: patientAge,
-        clinical_history: prev.clinical_history || studyDescription, // Use StudyDescription as default history if empty
-      }));
-    } catch (error) {
-      console.warn('Failed to parse DICOM file:', error);
-      // Don't block upload if parsing fails, just let user enter data manually
+      return {
+        PatientName: dataSet.string('x00100010'),
+        StudyDate: dataSet.string('x00080020'),
+        Modality: dataSet.string('x00080060'),
+        PatientSex: dataSet.string('x00100040'),
+        PatientAge: dataSet.string('x00101010'),
+      };
+    } catch (e) {
+      console.warn('Failed to parse DICOM', file.name, e);
+      return null;
     }
   };
 
   const handleFilesSelected = async (selectedFiles: File[]) => {
     setFiles(selectedFiles);
-    setStep('metadata');
-
-    // Try to parse the first DICOM file found
-    const dicomFile = selectedFiles.find(
-      (f) => f.name.toLowerCase().endsWith('.dcm') || f.type === 'application/dicom',
-    );
-
-    if (dicomFile) {
-      await parseDicomFile(dicomFile);
+    if (selectedFiles.length > 0) {
+      // Try to extract metadata from first DICOM file
+      const firstDicom = selectedFiles.find(
+        (f) => f.name.toLowerCase().endsWith('.dcm') || f.type === 'application/dicom',
+      );
+      if (firstDicom) {
+        const dcmData = await parseDicomFile(firstDicom);
+        if (dcmData) {
+          setMetadata((prev) => ({
+            ...prev,
+            patient_name: dcmData.PatientName || prev.patient_name,
+            study_date: dcmData.StudyDate || prev.study_date,
+            modality: dcmData.Modality || prev.modality,
+            gender: dcmData.PatientSex || prev.gender,
+            age: dcmData.PatientAge || prev.age,
+          }));
+        }
+      }
+      setStep('metadata');
     }
   };
 
   const saveTemplate = () => {
-    const name = prompt('Template Name (e.g., "Routine CT Chest"):');
+    const name = prompt('Template Name:');
     if (name) {
       const newTemplate: UploadTemplate = {
         id: crypto.randomUUID(),
         name,
-        data: {
-          modality: metadata.modality,
-          service_level: metadata.service_level,
-          clinical_history: metadata.clinical_history,
-        },
+        data: metadata,
       };
       const updated = [...templates, newTemplate];
       setTemplates(updated);
@@ -327,23 +375,28 @@ export const SmartUploadWizard = () => {
       setStep('uploading');
 
       // 4. Start background upload process
-      uploadManager.processUpload(id).catch((err) => {
-        console.error('Upload background process failed', err);
-        // The UI handles 'failed' status via useLiveQuery,
-        // but we can add a toast here if needed.
-      });
+      uploadManager
+        .processUpload(id, (bytes, duration) => {
+          if (isMounted.current) {
+            reportUploadMetric(bytes, duration);
+          }
+        })
+        .catch((err) => {
+          console.error('Upload background process failed', err);
+          // The UI handles 'failed' status via useLiveQuery,
+          // but we can add a toast here if needed.
+        });
     } catch (error) {
       console.error('Upload preparation failed', error);
       alert('Failed to prepare upload: ' + (error as Error).message);
     }
   };
 
-  useEffect(() => {
-    if (study && study.status === 'complete' && step !== 'complete') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setStep('complete');
-    }
-  }, [study, step]);
+  // Perform state transition directly during render to satisfy React 18 patterns
+  // (or use useLayoutEffect if timing is critical, but this simple transition is fine)
+  if (study && study.status === 'complete' && step !== 'complete') {
+    setStep('complete');
+  }
 
   // --- Render Steps ---
 
@@ -368,18 +421,51 @@ export const SmartUploadWizard = () => {
         <StepIndicator currentStep={step} />
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-8 min-h-[400px] animate-in slide-in-from-bottom-4 duration-500">
+          {showCamera && (
+            <CameraCapture
+              onCapture={(file) => {
+                handleFilesSelected([file]);
+                setShowCamera(false);
+              }}
+              onClose={() => setShowCamera(false)}
+            />
+          )}
+
           {step === 'files' && (
-            <div className="space-y-6">
+            <div className="space-y-6" {...handlers}>
               <FileDropZone
                 onFilesSelected={handleFilesSelected}
                 folderMode={folderMode}
                 setFolderMode={setFolderMode}
               />
+
+              {/* Advanced Input Actions */}
+              <div className="flex gap-4 justify-center mt-6 pt-6 border-t border-slate-800">
+                {isFsSupported && (
+                  <button
+                    onClick={handleNativePick}
+                    className="flex items-center justify-center gap-2 px-6 py-4 bg-slate-800 hover:bg-slate-700 rounded-xl text-base text-slate-200 transition-colors border border-slate-700 w-full md:w-auto shadow-sm active:scale-95 touch-manipulation"
+                  >
+                    {folderMode ? <FolderUp size={20} /> : <FileText size={20} />}
+                    {folderMode ? 'Native Folder Picker' : 'Native File Picker'}
+                  </button>
+                )}
+
+                {!folderMode && (
+                  <button
+                    onClick={() => setShowCamera(true)}
+                    className="flex items-center justify-center gap-2 px-6 py-4 bg-slate-800 hover:bg-slate-700 rounded-xl text-base text-slate-200 transition-colors border border-slate-700 w-full md:w-auto shadow-sm active:scale-95 touch-manipulation"
+                  >
+                    <Camera size={20} />
+                    Scan Documents
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
           {step === 'metadata' && (
-            <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+            <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300" {...handlers}>
               <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-sm font-mono">
@@ -452,6 +538,7 @@ export const SmartUploadWizard = () => {
                       value={metadata.gender || 'O'}
                       onChange={(e) => setMetadata({ ...metadata, gender: e.target.value })}
                       data-testid="gender-select"
+                      aria-label="Patient Gender"
                     >
                       <option value="M">Male</option>
                       <option value="F">Female</option>
@@ -470,6 +557,7 @@ export const SmartUploadWizard = () => {
                       value={metadata.modality || 'CT'}
                       onChange={(e) => setMetadata({ ...metadata, modality: e.target.value })}
                       data-testid="modality-select"
+                      aria-label="Study Modality"
                     >
                       <option value="CT">CT Scan</option>
                       <option value="MR">MRI</option>
@@ -481,6 +569,7 @@ export const SmartUploadWizard = () => {
                       value={metadata.service_level || 'routine'}
                       onChange={(e) => setMetadata({ ...metadata, service_level: e.target.value })}
                       data-testid="service-level-select"
+                      aria-label="Service Level"
                     >
                       <option value="routine">Routine (24h)</option>
                       <option value="stat">STAT (1h)</option>
@@ -542,7 +631,7 @@ export const SmartUploadWizard = () => {
 
               <div
                 role="progressbar"
-                aria-valuenow={progress}
+                aria-valuenow={Math.round(progress)}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-label="Upload progress"

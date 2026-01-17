@@ -23,6 +23,76 @@ export const clearAuthToken = () => {
   delete api.defaults.headers.common['Authorization'];
 };
 
+// -- API Response Time Monitoring --
+import { logCustomMetric } from '../utils/rum';
+
+// Add request interceptor to mark start time
+api.interceptors.request.use((config) => {
+  (config as any).metadata = { startTime: Date.now() };
+  return config;
+});
+
+// Add response interceptor to measure duration
+api.interceptors.response.use(
+  (response) => {
+    const metadata = (response.config as any).metadata;
+    if (metadata) {
+      const duration = Date.now() - metadata.startTime;
+      const url = response.config.url?.split('?')[0] || 'unknown';
+
+      // Log measurement
+      logCustomMetric({
+        name: 'API_Response_Time',
+        value: duration,
+        rating: duration < 500 ? 'good' : duration < 1500 ? 'needs-improvement' : 'poor',
+        context: {
+          url,
+          method: response.config.method?.toUpperCase(),
+          status: response.status,
+          api_endpoint: getEndpointName(url),
+        },
+      });
+    }
+    return response;
+  },
+  (error) => {
+    // Log failed requests too
+    if (error.config && error.config.metadata) {
+      const duration = Date.now() - error.config.metadata.startTime;
+      const url = error.config.url?.split('?')[0] || 'unknown';
+
+      logCustomMetric({
+        name: 'API_Error',
+        value: duration,
+        rating: 'poor',
+        context: {
+          url,
+          method: error.config.method?.toUpperCase(),
+          status: error.response?.status || 0,
+          error: error.message,
+        },
+      });
+    }
+    return Promise.reject(error);
+  },
+);
+
+// Helper to group URLs (e.g., /upload/123/chunk -> /upload/:id/chunk)
+function getEndpointName(url: string): string {
+  // Simple heuristics for common patterns
+  let endpoint = url
+    .replace(/\/upload\/[^/]+\/chunk/, '/upload/:id/chunk')
+    .replace(/\/upload\/[^/]+\/status/, '/upload/:id/status')
+    .replace(/\/upload\/[^/]+\/complete/, '/upload/:id/complete')
+    .replace(/\/reports\/[^/]+\/download/, '/reports/:id/download')
+    .replace(/\/reports\/[^/]+/, '/reports/:id');
+
+  // Remove query params if any stayed
+  if (endpoint.includes('?')) endpoint = endpoint.split('?')[0];
+
+  return endpoint;
+}
+
 // Types corresponding to backend models
 export interface StudyMetadata {
   patient_name?: string;

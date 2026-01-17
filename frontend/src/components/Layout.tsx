@@ -7,12 +7,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import NotificationBell from './notifications/NotificationBell';
 import { SkipNavigation } from './SkipNavigation';
+import { useAutoLogout } from '../hooks/useAutoLogout';
 
 export const Layout: React.FC = () => {
   const isOnline = useNetworkStatus();
   const { logout } = useAuth();
   const navigate = useNavigate();
   usePWAAppBadge();
+  useAutoLogout(); // Auto-logout on inactivity
 
   const handleLogout = () => {
     logout();

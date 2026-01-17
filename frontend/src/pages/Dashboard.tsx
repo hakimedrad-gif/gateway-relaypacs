@@ -1,11 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { uploadApi } from '../services/api';
-import type { UploadStats } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import { uploadApi, reportApi, type UploadStats, type Report } from '../services/api';
+import { useNotifications } from '../hooks/useNotifications';
 import { TrendChart } from '../components/TrendChart';
 import { ExportButton } from '../components/ExportButton';
 
 export const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
+  const { unreadCount } = useNotifications();
   const [stats, setStats] = useState<UploadStats | null>(null);
+  const [recentReports, setRecentReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<string>('all');
@@ -31,17 +35,30 @@ export const Dashboard: React.FC = () => {
     [period],
   );
 
+  const fetchRecentReports = useCallback(async () => {
+    try {
+      const data = await reportApi.listReports(undefined, 5, 0);
+      setRecentReports(data.reports);
+    } catch (err) {
+      console.error('Failed to fetch recent reports', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStats();
+    fetchRecentReports();
     // Fetch trend data for chart
     uploadApi
       .getTrendData('7d')
       .then((res) => setTrendData(res.data))
       .catch(console.error);
     // Refresh stats every 30 seconds
-    const interval = setInterval(() => fetchStats(period), 30000);
+    const interval = setInterval(() => {
+      fetchStats(period);
+      fetchRecentReports();
+    }, 30000);
     return () => clearInterval(interval);
-  }, [fetchStats, period]);
+  }, [fetchStats, fetchRecentReports, period]);
 
   const handleExport = async () => {
     try {
@@ -88,7 +105,7 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-8 animate-in fade-in duration-500">
+    <div className="p-6 space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-black text-white tracking-tight">Analytics Dashboard</h2>
@@ -116,6 +133,17 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {unreadCount > 0 && (
+            <div
+              onClick={() => navigate('/notifications')}
+              className="flex items-center gap-2 px-3 py-2 bg-blue-600/10 border border-blue-500/20 rounded-xl cursor-pointer hover:bg-blue-600/20 transition-all"
+            >
+              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+              <span className="text-xs font-black text-blue-400">
+                {unreadCount} NEW NOTIFICATIONS
+              </span>
+            </div>
+          )}
           <ExportButton onExport={handleExport} loading={exportLoading} />
           <div className="text-right hidden sm:block">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
@@ -148,8 +176,52 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Hero Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-slate-800/50 backdrop-blur-xl p-6 rounded-3xl border border-white/5 shadow-2xl group hover:border-blue-500/30 transition-all">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+            Total Studies
+          </p>
+          <p className="text-4xl font-black text-white group-hover:text-blue-400 transition-colors">
+            {stats?.total_uploads || 0}
+          </p>
+        </div>
+        <div className="bg-slate-800/50 backdrop-blur-xl p-6 rounded-3xl border border-white/5 shadow-2xl group hover:border-emerald-500/30 transition-all">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+            Success Rate
+          </p>
+          <div className="flex items-baseline gap-2">
+            <p className="text-4xl font-black text-emerald-400">
+              {stats && stats.total_uploads + stats.failed_uploads > 0
+                ? Math.round(
+                    (stats.total_uploads / (stats.total_uploads + stats.failed_uploads)) * 100,
+                  )
+                : 100}
+              %
+            </p>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-tighter">Verified</p>
+          </div>
+        </div>
+        <div className="bg-slate-800/50 backdrop-blur-xl p-6 rounded-3xl border border-white/5 shadow-2xl group hover:border-red-500/30 transition-all">
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+            Unread Alerts
+          </p>
+          <p
+            className={`text-4xl font-black ${
+              unreadCount > 0 ? 'text-red-400' : 'text-slate-600'
+            } transition-colors`}
+          >
+            {unreadCount}
+          </p>
+        </div>
+      </div>
+
       {/* Trend Chart */}
-      {trendData.length > 0 && <TrendChart data={trendData} period="7d" />}
+      {trendData.length > 0 && (
+        <div className="bg-slate-800/50 backdrop-blur-xl p-1 rounded-3xl border border-white/5 shadow-2xl overflow-hidden">
+          <TrendChart data={trendData} period="7d" />
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 font-bold text-sm flex items-center gap-3">
@@ -165,45 +237,87 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Hero Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-slate-800/50 backdrop-blur-xl p-6 rounded-3xl border border-white/5 shadow-2xl">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
-            Total Studies
-          </p>
-          <p className="text-4xl font-black text-white">{stats?.total_uploads || 0}</p>
-        </div>
-        <div className="bg-slate-800/50 backdrop-blur-xl p-6 rounded-3xl border border-white/5 shadow-2xl">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
-            Success Rate
-          </p>
-          <div className="flex items-baseline gap-2">
-            <p className="text-4xl font-black text-emerald-400">
-              {stats && stats.total_uploads + stats.failed_uploads > 0
-                ? Math.round(
-                    (stats.total_uploads / (stats.total_uploads + stats.failed_uploads)) * 100,
-                  )
-                : 100}
-              %
-            </p>
-            <p className="text-xs font-bold text-slate-500">uptime</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Recent Reports section */}
+        <div className="lg:col-span-2 bg-slate-800/50 backdrop-blur-xl p-8 rounded-3xl border border-white/5 shadow-2xl">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-600/20 rounded-lg">
+                <svg
+                  className="w-5 h-5 text-emerald-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2.5"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-xl font-black text-white">Recent Reports</h3>
+            </div>
+            <button
+              onClick={() => navigate('/reports')}
+              className="text-xs font-black text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-widest"
+            >
+              View All
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {recentReports.length > 0 ? (
+              recentReports.map((report) => (
+                <div
+                  key={report.id}
+                  onClick={() => navigate(`/reports/${report.id}`)}
+                  className="flex items-center justify-between p-4 bg-slate-900/50 rounded-2xl border border-white/5 hover:border-blue-500/30 cursor-pointer transition-all group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        report.status === 'ready'
+                          ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]'
+                          : report.status === 'in_transit'
+                            ? 'bg-indigo-500'
+                            : 'bg-amber-500'
+                      }`}
+                    />
+                    <div>
+                      <p className="text-sm font-black text-white group-hover:text-blue-400 transition-colors">
+                        {report.patient_name || 'Anonymous Study'}
+                      </p>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
+                        {report.study_instance_uid.substring(0, 20)}...
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-400 uppercase">
+                      {report.status.replace('_', ' ')}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-600">
+                      {new Date(report.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="py-12 text-center bg-slate-900/30 rounded-3xl border border-dashed border-white/5">
+                <p className="text-slate-600 font-bold italic">No reports available yet</p>
+                <button
+                  onClick={() => navigate('/')}
+                  className="mt-4 text-xs font-black text-blue-500 hover:text-blue-400 transition-colors uppercase tracking-widest"
+                >
+                  Start an Upload
+                </button>
+              </div>
+            )}
           </div>
         </div>
-        <div className="bg-slate-800/50 backdrop-blur-xl p-6 rounded-3xl border border-white/5 shadow-2xl">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
-            Failed Transfers
-          </p>
-          <p
-            className={`text-4xl font-black ${
-              stats?.failed_uploads ? 'text-red-400' : 'text-slate-600'
-            }`}
-          >
-            {stats?.failed_uploads || 0}
-          </p>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Modality Statistics */}
         <div className="bg-slate-800/50 backdrop-blur-xl p-8 rounded-3xl border border-white/5 shadow-2xl">
           <div className="flex items-center gap-3 mb-8">
@@ -222,26 +336,25 @@ export const Dashboard: React.FC = () => {
                 />
               </svg>
             </div>
-            <h3 className="text-xl font-black text-white">Modality Volume</h3>
+            <h3 className="text-xl font-black text-white">Modality</h3>
           </div>
 
           <div className="space-y-6">
             {stats && Object.entries(stats.modality).length > 0 ? (
               Object.entries(stats.modality)
                 .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
                 .map(([modality, count]) => (
                   <div key={modality} className="space-y-2">
                     <div className="flex justify-between items-end">
-                      <span className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                         {modalityLabels[modality] || modality.toUpperCase()}
                       </span>
-                      <span className="text-sm font-black text-white">
-                        {count} <span className="text-[10px] text-slate-500">cases</span>
-                      </span>
+                      <span className="text-xs font-black text-white">{count}</span>
                     </div>
-                    <div className="w-full bg-slate-900/50 rounded-full h-3 border border-white/5 overflow-hidden p-0.5">
+                    <div className="w-full bg-slate-900/50 rounded-full h-2 border border-white/5 overflow-hidden">
                       <div
-                        className="bg-gradient-to-r from-blue-600 to-blue-400 h-full rounded-full transition-all duration-1000 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+                        className="bg-blue-600 h-full rounded-full transition-all duration-1000"
                         style={{
                           width: `${
                             stats.total_uploads > 0 ? (count / stats.total_uploads) * 100 : 0
@@ -253,54 +366,7 @@ export const Dashboard: React.FC = () => {
                 ))
             ) : (
               <div className="py-12 text-center">
-                <p className="text-slate-600 font-bold italic">
-                  Waiting for initial upload data...
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Priority Statistics */}
-        <div className="bg-slate-800/50 backdrop-blur-xl p-8 rounded-3xl border border-white/5 shadow-2xl">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-2 bg-purple-600/20 rounded-lg">
-              <svg
-                className="w-5 h-5 text-purple-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.5"
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-xl font-black text-white">Priority Triage</h3>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {stats && Object.entries(stats.service_level).length > 0 ? (
-              Object.entries(stats.service_level)
-                .sort((a, b) => b[1] - a[1])
-                .map(([level, count]) => (
-                  <div
-                    key={level}
-                    className="flex flex-col p-5 bg-slate-900/50 rounded-2xl border border-white/5 hover:border-blue-500/30 transition-all group relative overflow-hidden"
-                  >
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-600/5 blur-3xl -mr-12 -mt-12 group-hover:bg-blue-600/10 transition-all transition-duration-500" />
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 relative z-10">
-                      {serviceLevelLabels[level] || level.toUpperCase()}
-                    </span>
-                    <span className="text-2xl font-black text-white relative z-10">{count}</span>
-                  </div>
-                ))
-            ) : (
-              <div className="col-span-2 py-12 text-center">
-                <p className="text-slate-600 font-bold italic">Waiting for priority data...</p>
+                <p className="text-slate-600 font-bold italic">N/A</p>
               </div>
             )}
           </div>

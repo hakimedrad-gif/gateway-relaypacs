@@ -72,30 +72,46 @@ export class UploadManagerService {
       }
     }
 
+    const { encryptionService } = await import('./encryption');
+    const decryptedMetadata = { ...study.metadata };
+
+    // Decrypt fields if they look encrypted (or just try decrypting)
+    if (decryptedMetadata.patientName) {
+      decryptedMetadata.patientName = await encryptionService.decrypt(
+        decryptedMetadata.patientName,
+      );
+    }
+    if (decryptedMetadata.clinicalHistory) {
+      decryptedMetadata.clinicalHistory = await encryptionService.decrypt(
+        decryptedMetadata.clinicalHistory,
+      );
+    }
+
     const initResponse = await uploadApi.initUpload(
       {
-        patient_name: study.metadata.patientName,
-        study_date: study.metadata.studyDate,
-        modality: study.metadata.modality,
-        age: study.metadata.age,
-        gender: study.metadata.gender,
-        service_level: study.metadata.serviceLevel,
+        patient_name: decryptedMetadata.patientName,
+        study_date: decryptedMetadata.studyDate,
+        modality: decryptedMetadata.modality,
+        age: decryptedMetadata.age,
+        gender: decryptedMetadata.gender,
+        service_level: decryptedMetadata.serviceLevel,
       },
       study.totalFiles,
       study.totalSize,
-      study.metadata.clinicalHistory,
+      decryptedMetadata.clinicalHistory,
     );
 
     await db.studies.update(studyId, {
       status: 'uploading',
       uploadId: initResponse.upload_id,
       uploadToken: initResponse.upload_token,
+      chunkSize: initResponse.chunk_size,
     });
 
     return { uploadId: initResponse.upload_id, uploadToken: initResponse.upload_token };
   }
 
-  async processUpload(studyId: number) {
+  async processUpload(studyId: number, onMetric?: (bytes: number, duration: number) => void) {
     const study = await db.studies.get(studyId);
     if (!study || !study.uploadId || !study.uploadToken) {
       throw new Error('Upload session not initialized');
@@ -103,7 +119,8 @@ export class UploadManagerService {
 
     const uploadId = study.uploadId;
     let uploadToken = study.uploadToken;
-    const chunkSize = 1024 * 1024;
+    // Use server-provided size or default to 1MB logic if missing (legacy compat)
+    const chunkSize = study.chunkSize || 1024 * 1024;
 
     const refreshInterval = setInterval(
       async () => {
@@ -136,7 +153,15 @@ export class UploadManagerService {
           const chunkBlob = new Blob([file.blob as BlobPart]).slice(start, end);
 
           try {
+            const startTime = Date.now();
             await uploadApi.uploadChunk(uploadId, String(file.id), i, chunkBlob, uploadToken);
+            const duration = Date.now() - startTime;
+
+            // Report network metric
+            if (onMetric) {
+              onMetric(chunkBlob.size, duration);
+            }
+
             file.uploadedChunks.push(i);
             totalChunksProcessed++;
 

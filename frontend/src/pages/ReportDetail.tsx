@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { reportApi, Report, ReportStatus } from '../services/api';
+import { reportApi, ReportStatus } from '../services/api';
+import type { Report } from '../services/api';
 import { db } from '../db/db';
 
 const ReportDetail: React.FC = () => {

@@ -40,6 +40,13 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db/db';
 import './index.css';
 
+// Initialize Real User Monitoring (Web Vitals tracking)
+import './utils/rum';
+
+// Initialize Security Cleanup
+import { cleanupService } from './services/cleanup';
+cleanupService.schedule();
+
 // Loading Fallback
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-slate-900">
@@ -204,8 +211,14 @@ const updateSW = registerSW({
   },
 });
 
+import { CapabilitiesProvider } from './utils/featureDetection';
+import { OfflineIndicator } from './components/OfflineIndicator';
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <CapabilitiesProvider>
+      <OfflineIndicator />
+      <RouterProvider router={router} />
+    </CapabilitiesProvider>
   </React.StrictMode>,
 );
