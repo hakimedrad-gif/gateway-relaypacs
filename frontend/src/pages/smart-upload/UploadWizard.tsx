@@ -303,19 +303,32 @@ export const SmartUploadWizard = () => {
     try {
       if (files.length === 0) return;
 
-      // Create study and start upload
+      // 1. Create study entry in local DB
       const fullMetadata = metadata as StudyMetadata;
       const id = await uploadManager.createStudy(files, fullMetadata);
       setStudyId(id);
 
+      // 2. Initialize Session first (Fail fast if backend is down)
+      try {
+        await uploadManager.initializeSession(id);
+      } catch (err) {
+        console.error('Failed to initialize upload session', err);
+        alert('Failed to connect to server. Please check your connection.');
+        return; // Stay on metadata step
+      }
+
+      // 3. Move to uploading state only after successful init
       setStep('uploading');
-      uploadManager.startUpload(id).catch((err) => {
+
+      // 4. Start background upload process
+      uploadManager.processUpload(id).catch((err) => {
         console.error('Upload background process failed', err);
+        // The UI handles 'failed' status via useLiveQuery,
+        // but we can add a toast here if needed.
       });
     } catch (error) {
-      console.error('Upload failed to start', error);
-      alert('Failed to start upload: ' + (error as Error).message);
-      setStep('metadata'); // Go back if failed to even init
+      console.error('Upload preparation failed', error);
+      alert('Failed to prepare upload: ' + (error as Error).message);
     }
   };
 

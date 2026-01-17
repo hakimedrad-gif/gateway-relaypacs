@@ -9,6 +9,12 @@ export const api = axios.create({
   },
 });
 
+// Auto-hydrate token from storage on load
+const savedToken = sessionStorage.getItem('relaypacs_auth_token');
+if (savedToken) {
+  api.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
+}
+
 export const setAuthToken = (token: string) => {
   api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 };
