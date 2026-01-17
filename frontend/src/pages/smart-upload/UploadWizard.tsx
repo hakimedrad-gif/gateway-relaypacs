@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as dicomParser from 'dicom-parser';
 
 import { Upload, FolderUp, FileText, Check, Clock, AlertCircle, Camera } from 'lucide-react';
 import { useStudy } from '../../hooks/useStudy';
