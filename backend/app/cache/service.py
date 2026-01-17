@@ -3,7 +3,7 @@
 import json
 from typing import Any
 
-import redis.asyncio as redis  # type: ignore[import-untyped]
+import redis.asyncio as redis
 
 from app.config import get_settings
 

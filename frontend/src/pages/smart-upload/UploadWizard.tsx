@@ -167,6 +167,11 @@ const FileDropZone = ({
           onChange={(e) => e.target.files && onFilesSelected(Array.from(e.target.files))}
           className="hidden"
           data-testid="file-input"
+          accept={
+            !folderMode
+              ? '.dcm,.zip,.rar,.png,.jpg,.jpeg,application/dicom,image/png,image/jpeg,application/zip,application/x-rar-compressed'
+              : undefined
+          }
           {...(folderMode
             ? {
                 webkitdirectory: '',
@@ -311,9 +316,10 @@ export const SmartUploadWizard = () => {
       // 2. Initialize Session first (Fail fast if backend is down)
       try {
         await uploadManager.initializeSession(id);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to initialize upload session', err);
-        alert('Failed to connect to server. Please check your connection.');
+        const errorMsg = err.response?.data?.detail?.message || err.message || 'Unknown error';
+        alert(`Failed to initialize upload: ${errorMsg}`);
         return; // Stay on metadata step
       }
 
@@ -416,7 +422,7 @@ export const SmartUploadWizard = () => {
                   </label>
                   <input
                     type="text"
-                    placeholder="Patient Name (Optional)"
+                    placeholder="Patient Name (Required)"
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none transition-all mb-4"
                     value={metadata.patient_name || ''}
                     onChange={(e) => setMetadata({ ...metadata, patient_name: e.target.value })}
@@ -435,7 +441,7 @@ export const SmartUploadWizard = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <input
                       type="text"
-                      placeholder="Age (e.g. 45Y)"
+                      placeholder="Age (e.g. 45Y) (Required)"
                       className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none"
                       value={metadata.age || ''}
                       onChange={(e) => setMetadata({ ...metadata, age: e.target.value })}
@@ -482,7 +488,7 @@ export const SmartUploadWizard = () => {
                     </select>
                   </div>
                   <textarea
-                    placeholder="Clinical History / Notes (Required)"
+                    placeholder="Clinical History / Clinical Impression (Required)"
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none h-24 resize-none"
                     value={metadata.clinical_history || ''}
                     onChange={(e) => setMetadata({ ...metadata, clinical_history: e.target.value })}
@@ -500,7 +506,15 @@ export const SmartUploadWizard = () => {
                 </button>
                 <button
                   onClick={handleUpload}
-                  disabled={!metadata.clinical_history}
+                  disabled={
+                    !metadata.patient_name ||
+                    !metadata.study_date ||
+                    !metadata.age ||
+                    !metadata.gender ||
+                    !metadata.modality ||
+                    !metadata.service_level ||
+                    !metadata.clinical_history
+                  }
                   className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105"
                   data-testid="start-upload-btn"
                 >

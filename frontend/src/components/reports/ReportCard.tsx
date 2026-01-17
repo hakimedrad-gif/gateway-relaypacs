@@ -27,6 +27,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
       [ReportStatus.PENDING]: 'bg-yellow-100 text-yellow-800',
       [ReportStatus.READY]: 'bg-green-100 text-green-800',
       [ReportStatus.ADDITIONAL_DATA_REQUIRED]: 'bg-red-100 text-red-800',
+      [ReportStatus.IN_TRANSIT]: 'bg-indigo-100 text-indigo-800',
     };
 
     const labels = {
@@ -34,6 +35,7 @@ const ReportCard: React.FC<ReportCardProps> = ({
       [ReportStatus.PENDING]: 'Pending',
       [ReportStatus.READY]: 'Ready',
       [ReportStatus.ADDITIONAL_DATA_REQUIRED]: 'Additional Data Required',
+      [ReportStatus.IN_TRANSIT]: 'Study in Transit',
     };
 
     return (

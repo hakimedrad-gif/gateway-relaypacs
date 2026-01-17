@@ -93,6 +93,7 @@ const ReportList: React.FC = () => {
     { id: 'all', label: 'All' },
     { id: ReportStatus.READY, label: 'Ready' },
     { id: ReportStatus.PENDING, label: 'Pending' },
+    { id: ReportStatus.IN_TRANSIT, label: 'In Transit' },
     { id: ReportStatus.ADDITIONAL_DATA_REQUIRED, label: 'Additional Data Needed' },
   ];
 

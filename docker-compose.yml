@@ -4,7 +4,7 @@ services:
   # Backend API
   backend:
     image: geteway-backend:latest
-    # build: ./backend
+    build: ./backend
     ports:
       - "8003:8003"
     # volumes:

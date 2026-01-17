@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -15,6 +14,7 @@ class ReportStatus(str, Enum):
     PENDING = "pending"  # Report in progress
     READY = "ready"  # Report completed and ready
     ADDITIONAL_DATA_REQUIRED = "additional_data_required"  # More info needed
+    IN_TRANSIT = "in_transit"  # Study uploaded, transferring to PACS/Radiologist
 
 
 class Report(BaseModel):
@@ -24,9 +24,9 @@ class Report(BaseModel):
     upload_id: UUID  # Links to upload session
     study_instance_uid: str  # DICOM Study Instance UID
     status: ReportStatus = ReportStatus.ASSIGNED
-    radiologist_name: Optional[str] = None
-    report_text: Optional[str] = None  # Report findings/text
-    report_url: Optional[str] = None  # Path to PDF report
+    radiologist_name: str | None = None
+    report_text: str | None = None  # Report findings/text
+    report_url: str | None = None  # Path to PDF report
     user_id: str  # User who uploaded the study
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -55,8 +55,8 @@ class Notification(BaseModel):
     notification_type: NotificationType
     title: str
     message: str
-    related_upload_id: Optional[UUID] = None
-    related_report_id: Optional[UUID] = None
+    related_upload_id: UUID | None = None
+    related_report_id: UUID | None = None
     is_read: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

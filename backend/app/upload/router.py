@@ -49,14 +49,16 @@ async def initialize_upload(
     # 1. Check for duplicates
     # Hash StudyInstanceUID + PatientID to find previous uploads
     # In real world, we'd extract these from DICOM, but here we use metadata provided by user
-    # or rely on frontend providing them. Wait, StudyMetadata doesn't strictly require UIDs in the model shown previously.
+    # or rely on frontend providing them. Wait, StudyMetadata doesn't strictly require UIDs in
+    # the model shown previously.
     # Actually, StudyMetadata usually implies we have some ID.
     # Let's check StudyMetadata model again.
     # It has patient_name, study_date, etc. but NO UID.
     # This is a problem. Typically ingestion provides UIDs later.
     # However, P2-5 explicitly says "Hash StudyInstanceUID + PatientID".
     # If these are not in init payload, we can't check duplicates at init time.
-    # We might need to rely on combination of Patient Name + Study Date + Modality + Description as a proxy hash?
+    # We might need to rely on combination of Patient Name + Study Date + Modality + Description
+    # as a proxy hash?
     # OR update StudyMetadata to include UIDs (which frontend might not have before parsing?).
     # Frontend usually parses DICOM tags before init.
     # Let's assume for now we use the available metadata for the hash proxy
@@ -64,19 +66,22 @@ async def initialize_upload(
 
     # Looking at frontend code (single-file-upload.spec.ts), it extracts metadata.
     # But `StudyMetadata` class in backend `models/upload.py` only lists descriptive fields.
-    # To implement P2-5 correctly, we should ideally add StudyInstanceUID/PatientID to the Init request.
+    # To implement P2-5 correctly, we should ideally add StudyInstanceUID/PatientID to the
+    # Init request.
     # But changing the request schema might break things if frontend doesn't send it.
 
     # Workaround: Use PatientName + StudyDate + Modality as a "soft" duplicate check.
     # Or strict check if we assume UIDs are added.
     # Let's check if I can modify StudyMetadata.
 
-    # Actually, let's implement the logic using available fields for now to fulfill the requirement "Add Duplicate Study Detection"
+    # Actually, let's implement the logic using available fields for now to fulfill the
+    # requirement "Add Duplicate Study Detection"
     # using what we have, or construct the hash from what we have.
     # "Hash StudyInstanceUID + PatientID" was the recommendation.
     # If I can't get UIDs, I will use: PatientName + StudyDate + Modality.
 
-    study_identifiers = f"{payload.study_metadata.patient_name}|{payload.study_metadata.study_date}|{payload.study_metadata.modality}"
+    study_md = payload.study_metadata
+    study_identifiers = f"{study_md.patient_name}|{study_md.study_date}|{study_md.modality}"
     study_hash = hashlib.sha256(study_identifiers.encode()).hexdigest()
 
     # Check if uploaded in last 30 days
@@ -92,7 +97,10 @@ async def initialize_upload(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
-                "message": f"Potential duplicate study detected. Similar study uploaded on {existing.created_at.strftime('%Y-%m-%d')}.",
+                "message": (
+                    f"Potential duplicate study detected. Similar study uploaded on "
+                    f"{existing.created_at.strftime('%Y-%m-%d')}."
+                ),
                 "code": "DUPLICATE_STUDY",
                 "upload_id": existing.upload_id,
             },
@@ -198,20 +206,24 @@ async def upload_chunk(
             # Chunk write failed or corrupted - delete partial file and fail fast
             try:
                 # Attempt to delete corrupted chunk
-                chunk_path = (
-                    storage_service.base_path
-                    / str(upload_id)
-                    / str(file_id)
-                    / f"{chunk_index}.part"
-                )
-                if hasattr(storage_service, "base_path") and chunk_path.exists():
-                    chunk_path.unlink()
+                if hasattr(storage_service, "base_path") and storage_service.base_path:
+                    chunk_path = (
+                        storage_service.base_path
+                        / str(upload_id)
+                        / str(file_id)
+                        / f"{chunk_index}.part"
+                    )
+                    if chunk_path.exists():
+                        chunk_path.unlink()
             except Exception:
                 pass  # Deletion is best-effort
 
             raise HTTPException(
                 status_code=500,
-                detail=f"Chunk {chunk_index} write verification failed. Expected {received_bytes} bytes. Please retry upload.",
+                detail=(
+                    f"Chunk {chunk_index} write verification failed. "
+                    f"Expected {received_bytes} bytes. Please retry upload."
+                ),
             )
 
     # Register chunk with checksum for integrity validation during merge
@@ -336,7 +348,7 @@ async def complete_upload(  # noqa: PLR0912, PLR0915
     # Create report record and send notifications
     user_id = token.get("user_id", "unknown")  # Get user_id from token
 
-    if processed_count > 0 and pacs_receipt_id:
+    if processed_count > 0:
         try:
             # Import needed modules
             from app.database.reports_db import reports_db
@@ -356,24 +368,29 @@ async def complete_upload(  # noqa: PLR0912, PLR0915
             report = Report(
                 upload_id=upload_id,
                 study_instance_uid=study_uid,
-                status=ReportStatus.ASSIGNED,
+                status=ReportStatus.IN_TRANSIT,
                 user_id=user_id,
             )
             reports_db.create_report(report)
 
             # Send success notification
             msg = f"Study '{session.metadata.patient_name}' uploaded successfully"
+            if pacs_receipt_id:
+                msg += " and sent to PACS"
+            else:
+                msg += " (PACS forwarding pending/failed)"
+
             await notification_service.create_and_broadcast(
                 user_id=user_id,
                 notification_type=NotificationType.UPLOAD_COMPLETE,
                 title="Upload Complete",
-                message=f"{msg} and sent to PACS",
+                message=msg,
                 upload_id=upload_id,
                 report_id=report.id,
             )
         except Exception as e:
             # Log error but don't fail the upload
-            warnings.append(f"Notification creation failed: {e!s}")
+            warnings.append(f"Notification/Report creation failed: {e!s}")
 
     elif status == "failed":
         # Send failure notification
@@ -418,12 +435,12 @@ async def get_upload_stats(
     if cached_data := await cache_service.get(cache_key):
         return cached_data
 
-    stats = stats_manager.get_stats(period)
+    stats = stats_manager.get_stats(period or "all")
 
     # Cache for 60 seconds
     await cache_service.set(cache_key, stats, expire=60)
 
-    return stats
+    return dict(stats)
 
 
 @router.get("/{upload_id}/status", response_model=UploadStatusResponse)
@@ -469,7 +486,7 @@ async def export_statistics(
     Returns CSV file for download with statistics breakdown.
     """
     # Get stats using existing stats_manager
-    stats_data = stats_manager.get_stats(period)
+    stats_data = stats_manager.get_stats(period or "all")
 
     # Convert to CSV
     csv_content = export_stats_to_csv(stats_data)

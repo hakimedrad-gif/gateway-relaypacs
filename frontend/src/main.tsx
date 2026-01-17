@@ -24,6 +24,7 @@ const Dashboard = React.lazy(() =>
   import('./pages/Dashboard').then((module) => ({ default: module.Dashboard })),
 );
 const Reports = React.lazy(() => import('./pages/Reports')); // Default export
+const ReportDetail = React.lazy(() => import('./pages/ReportDetail')); // Default export
 const Notifications = React.lazy(() => import('./pages/Notifications')); // Default export
 const Settings = React.lazy(() =>
   import('./pages/Settings').then((module) => ({ default: module.Settings })),
@@ -120,6 +121,14 @@ const router = createBrowserRouter(
           element: (
             <React.Suspense fallback={<PageLoader />}>
               <Dashboard />
+            </React.Suspense>
+          ),
+        },
+        {
+          path: 'reports/:reportId',
+          element: (
+            <React.Suspense fallback={<PageLoader />}>
+              <ReportDetail />
             </React.Suspense>
           ),
         },

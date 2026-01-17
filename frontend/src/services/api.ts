@@ -202,6 +202,7 @@ export const ReportStatus = {
   PENDING: 'pending',
   READY: 'ready',
   ADDITIONAL_DATA_REQUIRED: 'additional_data_required',
+  IN_TRANSIT: 'in_transit',
 } as const;
 export type ReportStatus = (typeof ReportStatus)[keyof typeof ReportStatus];
 
