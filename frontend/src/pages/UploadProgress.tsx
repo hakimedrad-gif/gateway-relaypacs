@@ -10,27 +10,12 @@ export const UploadProgress: React.FC = () => {
   const study = useLiveQuery(() => db.studies.get(Number(uploadId)), [uploadId]);
 
   const files = useLiveQuery(
-    () => db.files.where('studyId').equals(Number(uploadId)).toArray(),
+    () => db.files.where('studyId').equals(Number(uploadId)).limit(100).toArray(),
     [uploadId],
   );
 
-  // Calculate progress efficiently without side-effects
-  let progress = 0;
-  if (files && study) {
-    let totalChunksUploaded = 0;
-    let totalChunksExpected = 0;
-    const CHUNK_SIZE = 1024 * 1024; // 1MB match backend
-
-    files.forEach((f) => {
-      const fileChunks = Math.ceil(f.size / CHUNK_SIZE);
-      totalChunksExpected += fileChunks;
-      totalChunksUploaded += f.uploadedChunks.length;
-    });
-
-    if (totalChunksExpected > 0) {
-      progress = Math.round((totalChunksUploaded / totalChunksExpected) * 100);
-    }
-  }
+  // Calculate progress efficiently from study object
+  const progress = study?.progress || 0;
 
   if (!study) return <div className="p-4 text-center">Loading...</div>;
 

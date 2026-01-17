@@ -95,6 +95,14 @@ const router = createBrowserRouter(
           index: true,
           element: (
             <React.Suspense fallback={<PageLoader />}>
+              <SmartUploadWizard />
+            </React.Suspense>
+          ),
+        },
+        {
+          path: 'upload-legacy',
+          element: (
+            <React.Suspense fallback={<PageLoader />}>
               <UploadStudy />
             </React.Suspense>
           ),

@@ -22,6 +22,7 @@ export interface Study {
   clinicalNotes?: string;
   totalFiles: number;
   totalSize: number;
+  progress?: number; // Percent completed
   createdAt: Date;
   lastSyncAttempt?: Date;
 }

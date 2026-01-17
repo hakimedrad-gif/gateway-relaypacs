@@ -27,7 +27,7 @@ export const MetadataConfirmation: React.FC = () => {
   React.useEffect(() => {
     if (study && !initialLoadDone.current) {
       setFormData({
-        patientName: study.metadata.patientName || '',
+        patientName: (study.metadata.patientName || '').replace(/\^/g, ' ').trim(),
         studyDate: study.metadata.studyDate || '',
         modality: study.metadata.modality || '',
         age: study.metadata.age || '',
@@ -99,6 +99,9 @@ export const MetadataConfirmation: React.FC = () => {
     await db.studies.update(Number(studyId), {
       metadata: {
         ...study.metadata,
+        patientName: formData.patientName,
+        studyDate: formData.studyDate,
+        modality: formData.modality,
         age: formData.age,
         gender: formData.gender,
         studyDescription: formData.clinicalNotes,
@@ -154,9 +157,9 @@ export const MetadataConfirmation: React.FC = () => {
           <input
             id="patientName"
             type="text"
-            readOnly
             value={formData.patientName}
-            className="w-full bg-slate-900/50 border border-slate-700 rounded-lg p-3 text-slate-400 cursor-not-allowed outline-none"
+            onChange={(e) => setFormData({ ...formData, patientName: e.target.value })}
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
           />
         </div>
 
@@ -167,10 +170,10 @@ export const MetadataConfirmation: React.FC = () => {
             </label>
             <input
               id="studyDate"
-              type="text"
-              readOnly
+              type="date"
               value={formData.studyDate}
-              className="w-full bg-slate-900/50 border border-slate-700 rounded-lg p-3 text-slate-400 cursor-not-allowed outline-none"
+              onChange={(e) => setFormData({ ...formData, studyDate: e.target.value })}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
           <div>
@@ -180,9 +183,9 @@ export const MetadataConfirmation: React.FC = () => {
             <input
               id="modality"
               type="text"
-              readOnly
               value={formData.modality}
-              className="w-full bg-slate-900/50 border border-slate-700 rounded-lg p-3 text-slate-400 cursor-not-allowed outline-none"
+              onChange={(e) => setFormData({ ...formData, modality: e.target.value })}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
         </div>

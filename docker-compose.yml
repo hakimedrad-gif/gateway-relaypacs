@@ -12,7 +12,7 @@ services:
     environment:
       - DEBUG=true
       - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=postgresql+psycopg2://relaypacs:relaypacs@postgres:5432/relaypacs
+      - DATABASE_URL=postgresql+psycopg2://relaypacs:${POSTGRES_PASSWORD}@postgres:5432/relaypacs
       - S3_ENDPOINT=http://minio:9000
       - USE_S3=true
       - ORTHANC_URL=http://orthanc:8042
@@ -50,10 +50,10 @@ services:
   # Frontend (Nginx Production Build)
   frontend:
     image: geteway-frontend:latest
-    # build:
-    #   context: ./frontend
-    #   args:
-    #     - VITE_API_URL=http://localhost:8003
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_URL=http://localhost:8003
     ports:
       - "3002:80"
     depends_on:

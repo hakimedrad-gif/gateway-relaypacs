@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as dicomParser from 'dicom-parser';
 import { uploadManager } from '../../services/uploadManager';
 import { db } from '../../db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -76,7 +77,15 @@ const StepIndicator = ({ currentStep }: { currentStep: WizardStep }) => {
   );
 };
 
-const FileDropZone = ({ onFilesSelected }: { onFilesSelected: (files: File[]) => void }) => {
+const FileDropZone = ({
+  onFilesSelected,
+  folderMode,
+  setFolderMode,
+}: {
+  onFilesSelected: (files: File[]) => void;
+  folderMode: boolean;
+  setFolderMode: (m: boolean) => void;
+}) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -98,49 +107,80 @@ const FileDropZone = ({ onFilesSelected }: { onFilesSelected: (files: File[]) =>
   };
 
   return (
-    <div
-      className={`border-3 border-dashed rounded-2xl p-12 text-center transition-all duration-300 cursor-pointer group
-        ${
-          isDragging
-            ? 'border-blue-500 bg-blue-500/10 scale-[1.02]'
-            : 'border-slate-600 bg-slate-800/50 hover:border-blue-400 hover:bg-slate-800'
-        }
-      `}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      onClick={() => fileInputRef.current?.click()}
-      data-testid="file-drop-zone"
-    >
-      <div className="w-20 h-20 mx-auto mb-6 bg-slate-700/50 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-        <svg
-          className="w-10 h-10 text-blue-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+    <div className="space-y-4">
+      <div className="flex justify-center gap-4 mb-2">
+        <button
+          onClick={() => setFolderMode(false)}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+            !folderMode ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400'
+          }`}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-          />
-        </svg>
+          FILES MODE
+        </button>
+        <button
+          onClick={() => setFolderMode(true)}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+            folderMode ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400'
+          }`}
+        >
+          FOLDER MODE
+        </button>
       </div>
-      <h3 className="text-2xl font-bold text-white mb-2">Drop DICOM files here</h3>
-      <p className="text-slate-400 mb-6">or click to browse from your computer</p>
-      <input
-        type="file"
-        multiple
-        ref={fileInputRef}
-        onChange={(e) => e.target.files && onFilesSelected(Array.from(e.target.files))}
-        className="hidden"
-        data-testid="file-input"
-      />
-      <div className="flex gap-3 justify-center text-xs text-slate-500 font-mono">
-        <span className="bg-slate-900 px-2 py-1 rounded border border-slate-700">.dcm</span>
-        <span className="bg-slate-900 px-2 py-1 rounded border border-slate-700">.zip</span>
-        <span className="bg-slate-900 px-2 py-1 rounded border border-slate-700">folder</span>
+
+      <div
+        className={`border-3 border-dashed rounded-2xl p-12 text-center transition-all duration-300 cursor-pointer group
+          ${
+            isDragging
+              ? 'border-blue-500 bg-blue-500/10 scale-[1.02]'
+              : 'border-slate-600 bg-slate-800/50 hover:border-blue-400 hover:bg-slate-800'
+          }
+        `}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+        data-testid="file-drop-zone"
+      >
+        <div className="w-20 h-20 mx-auto mb-6 bg-slate-700/50 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+          <svg
+            className="w-10 h-10 text-blue-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+            />
+          </svg>
+        </div>
+        <h3 className="text-2xl font-bold text-white mb-2">
+          {folderMode ? 'Drop Folders here' : 'Drop Files here'}
+        </h3>
+        <p className="text-slate-400 mb-6">or click to browse from your computer</p>
+        <input
+          type="file"
+          multiple
+          ref={fileInputRef}
+          onChange={(e) => e.target.files && onFilesSelected(Array.from(e.target.files))}
+          className="hidden"
+          data-testid="file-input"
+          {...(folderMode
+            ? {
+                webkitdirectory: '',
+                directory: '',
+              }
+            : {})}
+        />
+        <div className="flex gap-3 justify-center text-xs text-slate-500 font-mono">
+          <span className="bg-slate-900 px-2 py-1 rounded border border-slate-700">.dcm</span>
+          <span className="bg-slate-900 px-2 py-1 rounded border border-slate-700">.zip</span>
+          <span className="bg-slate-900 px-2 py-1 rounded border border-slate-700">
+            .png / .jpg
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -151,6 +191,7 @@ const FileDropZone = ({ onFilesSelected }: { onFilesSelected: (files: File[]) =>
 export const SmartUploadWizard = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<WizardStep>('files');
+  const [folderMode, setFolderMode] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [studyId, setStudyId] = useState<number | null>(null);
 
@@ -159,6 +200,8 @@ export const SmartUploadWizard = () => {
     service_level: 'routine',
     modality: 'CT',
     gender: 'O',
+    patient_name: '',
+    study_date: '',
   });
 
   // Templates State
@@ -167,29 +210,8 @@ export const SmartUploadWizard = () => {
   // Live Query for uploading progress
   const study = useLiveQuery(() => (studyId ? db.studies.get(studyId) : undefined), [studyId]);
 
-  // Live Query for files to calculate accurate progress
-  const filesList = useLiveQuery(
-    () => (studyId ? db.files.where('studyId').equals(studyId).toArray() : []),
-    [studyId],
-  );
-
-  // Calculate progress
-  let progress = 0;
-  if (filesList && study) {
-    let totalChunksUploaded = 0;
-    let totalChunksExpected = 0;
-    const CHUNK_SIZE = 1024 * 1024; // 1MB match backend
-
-    filesList.forEach((f) => {
-      const fileChunks = Math.ceil(f.size / CHUNK_SIZE);
-      totalChunksExpected += fileChunks;
-      totalChunksUploaded += f.uploadedChunks.length;
-    });
-
-    if (totalChunksExpected > 0) {
-      progress = Math.round((totalChunksUploaded / totalChunksExpected) * 100);
-    }
-  }
+  // Calculate progress efficiently
+  const progress = study?.progress || 0;
 
   useEffect(() => {
     // Load templates
@@ -200,9 +222,59 @@ export const SmartUploadWizard = () => {
     }
   }, []);
 
-  const handleFilesSelected = (selectedFiles: File[]) => {
+  const parseDicomFile = async (file: File) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const byteArray = new Uint8Array(arrayBuffer);
+      const dataSet = dicomParser.parseDicom(byteArray);
+
+      const patientNameString = dataSet.string('x00100010');
+      // Format name: replace carets with spaces
+      const patientName = patientNameString ? patientNameString.replace(/\^/g, ' ').trim() : '';
+
+      const studyDateString = dataSet.string('x00080020') || '';
+      // Format date: YYYYMMDD -> YYYY-MM-DD
+      let studyDate = '';
+      if (studyDateString && studyDateString.length === 8) {
+        studyDate = `${studyDateString.substring(0, 4)}-${studyDateString.substring(
+          4,
+          6,
+        )}-${studyDateString.substring(6, 8)}`;
+      }
+
+      const modality = dataSet.string('x00080060') || 'CT';
+      const patientSex = dataSet.string('x00100040') || 'O';
+      const patientAge = dataSet.string('x00101010') || '';
+
+      const studyDescription = dataSet.string('x00081030') || '';
+
+      setMetadata((prev) => ({
+        ...prev,
+        patient_name: patientName,
+        study_date: studyDate,
+        modality: modality,
+        gender: patientSex,
+        age: patientAge,
+        clinical_history: prev.clinical_history || studyDescription, // Use StudyDescription as default history if empty
+      }));
+    } catch (error) {
+      console.warn('Failed to parse DICOM file:', error);
+      // Don't block upload if parsing fails, just let user enter data manually
+    }
+  };
+
+  const handleFilesSelected = async (selectedFiles: File[]) => {
     setFiles(selectedFiles);
     setStep('metadata');
+
+    // Try to parse the first DICOM file found
+    const dicomFile = selectedFiles.find(
+      (f) => f.name.toLowerCase().endsWith('.dcm') || f.type === 'application/dicom',
+    );
+
+    if (dicomFile) {
+      await parseDicomFile(dicomFile);
+    }
   };
 
   const saveTemplate = () => {
@@ -232,16 +304,18 @@ export const SmartUploadWizard = () => {
       if (files.length === 0) return;
 
       // Create study and start upload
-      // Note: mapping Partial<StudyMetadata> to StudyMetadata
       const fullMetadata = metadata as StudyMetadata;
       const id = await uploadManager.createStudy(files, fullMetadata);
       setStudyId(id);
 
       setStep('uploading');
-      await uploadManager.startUpload(id);
+      uploadManager.startUpload(id).catch((err) => {
+        console.error('Upload background process failed', err);
+      });
     } catch (error) {
       console.error('Upload failed to start', error);
       alert('Failed to start upload: ' + (error as Error).message);
+      setStep('metadata'); // Go back if failed to even init
     }
   };
 
@@ -277,7 +351,11 @@ export const SmartUploadWizard = () => {
         <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-8 min-h-[400px] animate-in slide-in-from-bottom-4 duration-500">
           {step === 'files' && (
             <div className="space-y-6">
-              <FileDropZone onFilesSelected={handleFilesSelected} />
+              <FileDropZone
+                onFilesSelected={handleFilesSelected}
+                folderMode={folderMode}
+                setFolderMode={setFolderMode}
+              />
             </div>
           )}
 
@@ -331,6 +409,16 @@ export const SmartUploadWizard = () => {
                     onChange={(e) => setMetadata({ ...metadata, patient_name: e.target.value })}
                     data-testid="patient-name-input"
                   />
+                  <div className="mb-4">
+                    <input
+                      type="date"
+                      placeholder="Study Date"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none"
+                      value={metadata.study_date || ''}
+                      onChange={(e) => setMetadata({ ...metadata, study_date: e.target.value })}
+                      data-testid="study-date-input"
+                    />
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <input
                       type="text"
@@ -423,6 +511,20 @@ export const SmartUploadWizard = () => {
                     Uploading
                   </span>
                 </div>
+              </div>
+
+              <div
+                role="progressbar"
+                aria-valuenow={progress}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Upload progress"
+                className="relative w-full h-3 bg-slate-900 rounded-full overflow-hidden mb-3 border border-slate-700"
+              >
+                <div
+                  className="h-full bg-blue-500 transition-all duration-300 ease-out"
+                  style={{ width: `${progress}%` }}
+                ></div>
               </div>
 
               <div className="max-w-md mx-auto bg-slate-950 rounded-lg p-4 border border-slate-800 text-left">

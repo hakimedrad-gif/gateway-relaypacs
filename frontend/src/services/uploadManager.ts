@@ -35,23 +35,23 @@ export class UploadManagerService {
       createdAt: new Date(),
     });
 
-    // 2. Store file contents as ArrayBuffers for maximum compatibility
-    for (const file of files) {
-      const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(file);
-      });
-
-      await db.files.add({
-        studyId: Number(studyId),
-        fileName: file.name,
-        fileType: file.type,
-        size: file.size,
-        blob: arrayBuffer as ArrayBuffer, // Storing as ArrayBuffer
-        uploadedChunks: [],
-      });
+    // 2. Store file contents in parallel batches to avoid blocking
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
+      const batch = files.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (file) => {
+          const arrayBuffer = await file.arrayBuffer();
+          await db.files.add({
+            studyId: Number(studyId),
+            fileName: file.name,
+            fileType: file.type,
+            size: file.size,
+            blob: arrayBuffer,
+            uploadedChunks: [],
+          });
+        }),
+      );
     }
 
     return Number(studyId);
@@ -60,9 +60,6 @@ export class UploadManagerService {
   async initializeSession(studyId: number): Promise<{ uploadId: string; uploadToken: string }> {
     const study = await db.studies.get(studyId);
     if (!study) throw new Error('Study not found');
-
-    // 1. Authenticate (Auto-login for MVP)
-    await uploadApi.login('admin', 'password');
 
     const { uploadId: existingId, uploadToken: existingToken } = study;
 
@@ -123,10 +120,16 @@ export class UploadManagerService {
 
     try {
       const files = await db.files.where('studyId').equals(studyId).toArray();
+      let totalChunksProcessed = 0;
+      const totalStudyChunks = files.reduce((acc, f) => acc + Math.ceil(f.size / chunkSize), 0);
+
       for (const file of files) {
         const totalChunks = Math.ceil(file.size / chunkSize);
         for (let i = 0; i < totalChunks; i++) {
-          if (file.uploadedChunks.includes(i)) continue;
+          if (file.uploadedChunks.includes(i)) {
+            totalChunksProcessed++;
+            continue;
+          }
 
           const start = i * chunkSize;
           const end = Math.min(start + chunkSize, file.size);
@@ -135,7 +138,16 @@ export class UploadManagerService {
           try {
             await uploadApi.uploadChunk(uploadId, String(file.id), i, chunkBlob, uploadToken);
             file.uploadedChunks.push(i);
+            totalChunksProcessed++;
+
+            // Update local state and study progress
             await db.files.update(file.id!, { uploadedChunks: file.uploadedChunks });
+
+            // AC-25: Throttle DB updates for progress
+            if (totalChunksProcessed % 5 === 0 || totalChunksProcessed === totalStudyChunks) {
+              const progress = Math.round((totalChunksProcessed / totalStudyChunks) * 100);
+              await db.studies.update(studyId, { progress });
+            }
           } catch (e: unknown) {
             await db.studies.update(studyId, { status: 'failed' });
             throw e;
