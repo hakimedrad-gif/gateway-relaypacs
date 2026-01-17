@@ -8,6 +8,7 @@ import { useNetworkQuality } from '../../hooks/useNetworkQuality';
 import { useFileSystem } from '../../hooks/useFileSystem';
 import { CameraCapture } from '../../components/CameraCapture';
 import { useTouchGestures } from '../../hooks/useTouchGestures';
+import { uploadManager } from '../../services/uploadManager';
 
 // --- Types ---
 
@@ -298,15 +299,18 @@ export const SmartUploadWizard = () => {
       const byteArray = new Uint8Array(arrayBuffer);
       const dataSet = dicomParser.parseDicom(byteArray);
 
-      return {
+      const extractedData = {
         PatientName: dataSet.string('x00100010'),
         StudyDate: dataSet.string('x00080020'),
         Modality: dataSet.string('x00080060'),
         PatientSex: dataSet.string('x00100040'),
         PatientAge: dataSet.string('x00101010'),
       };
+
+      console.log('✅ DICOM metadata extracted:', extractedData);
+      return extractedData;
     } catch (e) {
-      console.warn('Failed to parse DICOM', file.name, e);
+      console.error('❌ Failed to parse DICOM', file.name, e);
       return null;
     }
   };
