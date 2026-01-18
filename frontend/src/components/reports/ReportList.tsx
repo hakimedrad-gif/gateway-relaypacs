@@ -92,9 +92,10 @@ const ReportList: React.FC = () => {
   const filterTabs = [
     { id: 'all', label: 'All' },
     { id: ReportStatus.READY, label: 'Ready' },
+    { id: ReportStatus.INPROGRESS, label: 'In Progress' },
+    { id: ReportStatus.ASSIGNED, label: 'Assigned' },
     { id: ReportStatus.PENDING, label: 'Pending' },
-    { id: ReportStatus.IN_TRANSIT, label: 'In Transit' },
-    { id: ReportStatus.ADDITIONAL_DATA_REQUIRED, label: 'Additional Data Needed' },
+    { id: ReportStatus.INTRANSIT, label: 'In Transit' },
   ];
 
   const Row = ({ index, style, data }: ListChildComponentProps) => {

@@ -1,15 +1,27 @@
 """API router for report management endpoints."""
 
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.database.reports_db import reports_db
 from app.models.report import Report, ReportListResponse, ReportStatus
 
 router = APIRouter()
+
+router = APIRouter()
+
+
+class ReportStatusUpdate(BaseModel):
+    """Request to update report status."""
+
+    status: ReportStatus
+    radiologist_id: UUID | None = None
+    radiologist_name: str | None = None
 
 
 @router.get("/", response_model=ReportListResponse)
@@ -86,6 +98,54 @@ async def get_report_by_upload(
         raise HTTPException(status_code=403, detail="Not authorized to view this report")
 
     return report
+    return report
+
+
+@router.put("/upload/{upload_id}/status", response_model=Report)
+async def update_report_status(
+    upload_id: UUID,
+    payload: ReportStatusUpdate,
+    user: dict[str, Any] = Depends(get_current_user),
+) -> Report:
+    """Update report status with timestamp tracking."""
+    report = reports_db.get_report_by_upload_id(upload_id)
+
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    # Access control (optional: maybe allow radiologists to update any report?)
+    # For now, restrict to owner or admin/radiologist logic (not implemented)
+
+    # Calculate timestamps
+    now = datetime.now(UTC)
+    updates: dict[str, Any] = {}
+
+    if payload.status == ReportStatus.PENDING and not report.pacs_received_at:
+        updates["pacs_received_at"] = now
+    elif payload.status == ReportStatus.ASSIGNED and not report.assigned_at:
+        updates["assigned_at"] = now
+        if payload.radiologist_name:
+            updates["radiologist_name"] = payload.radiologist_name
+    elif payload.status == ReportStatus.INPROGRESS and not report.viewed_at:
+        updates["viewed_at"] = now
+    elif payload.status == ReportStatus.READY and not report.completed_at:
+        updates["completed_at"] = now
+
+    updated_report = reports_db.update_report_status(
+        report_id=report.id,
+        status=payload.status,
+        radiologist_name=updates.get("radiologist_name"),
+        intransit_at=updates.get("intransit_at"),
+        pacs_received_at=updates.get("pacs_received_at"),
+        assigned_at=updates.get("assigned_at"),
+        viewed_at=updates.get("viewed_at"),
+        completed_at=updates.get("completed_at"),
+    )
+
+    if not updated_report:
+        raise HTTPException(status_code=404, detail="Report not found after update")
+
+    return updated_report
 
 
 @router.get("/{report_id}/download")

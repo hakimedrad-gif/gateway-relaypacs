@@ -21,25 +21,33 @@ const ReportCard: React.FC<ReportCardProps> = ({
   onPrint,
   onShare,
 }) => {
-  const getStatusBadge = (status: ReportStatus) => {
+  const getStatusBadgeClass = (status: ReportStatus) => {
     const badges = {
-      [ReportStatus.ASSIGNED]: 'bg-blue-100 text-blue-800',
+      [ReportStatus.IN_TRANSIT]: 'bg-gray-100 text-gray-800',
       [ReportStatus.PENDING]: 'bg-yellow-100 text-yellow-800',
+      [ReportStatus.ASSIGNED]: 'bg-blue-100 text-blue-800',
+      [ReportStatus.IN_PROGRESS]: 'bg-indigo-100 text-indigo-800',
       [ReportStatus.READY]: 'bg-green-100 text-green-800',
       [ReportStatus.ADDITIONAL_DATA_REQUIRED]: 'bg-red-100 text-red-800',
-      [ReportStatus.IN_TRANSIT]: 'bg-indigo-100 text-indigo-800',
     };
 
+    return badges[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusLabel = (status: ReportStatus) => {
     const labels = {
-      [ReportStatus.ASSIGNED]: 'Assigned',
+      [ReportStatus.IN_TRANSIT]: 'In Transit',
       [ReportStatus.PENDING]: 'Pending',
+      [ReportStatus.ASSIGNED]: 'Assigned',
+      [ReportStatus.IN_PROGRESS]: 'In Progress',
       [ReportStatus.READY]: 'Ready',
-      [ReportStatus.ADDITIONAL_DATA_REQUIRED]: 'Additional Data Required',
-      [ReportStatus.IN_TRANSIT]: 'Study in Transit',
+      [ReportStatus.ADDITIONAL_DATA_REQUIRED]: 'Action Required',
     };
 
     return (
-      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${badges[status]}`}>
+      <span
+        className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadgeClass(status)}`}
+      >
         {labels[status]}
       </span>
     );
@@ -65,9 +73,8 @@ const ReportCard: React.FC<ReportCardProps> = ({
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
               {report.patient_name || `Study: ${report.study_instance_uid.slice(0, 20)}...`}
             </h3>
-            <p className="text-sm text-gray-600">Uploaded: {formatDate(report.created_at)}</p>
           </div>
-          {getStatusBadge(report.status as ReportStatus)}
+          {getStatusLabel(report.status as ReportStatus)}
         </div>
       </div>
 

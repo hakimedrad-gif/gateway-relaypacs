@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { reportApi, ReportStatus } from '../services/api';
 import type { Report } from '../services/api';
 import { db } from '../db/db';
+import ReportStatusTimeline from '../components/reports/ReportStatusTimeline';
 
 const ReportDetail: React.FC = () => {
   const { reportId } = useParams<{ reportId: string }>();
@@ -40,6 +41,10 @@ const ReportDetail: React.FC = () => {
     };
 
     fetchReport();
+
+    // Poll for status updates every 10 seconds
+    const interval = setInterval(fetchReport, 10000);
+    return () => clearInterval(interval);
   }, [reportId]);
 
   if (loading) {
@@ -63,20 +68,7 @@ const ReportDetail: React.FC = () => {
   }
 
   // Status Stepper Calculation
-  const steps = [
-    { status: ReportStatus.IN_TRANSIT, label: 'In Transit' },
-    { status: ReportStatus.PENDING, label: 'Pending' },
-    { status: ReportStatus.READY, label: 'Ready' },
-  ];
-
-  const currentStepIndex = steps.findIndex((s) => s.status === report.status);
-  // If status is 'assigned' (legacy) or 'additional_data_required', map them to sensible visual steps
-  // For 'assigned', maybe treat as 'Pending'.
-  // For 'additional_data_required', maybe a special alert state.
-
-  let activeStep = currentStepIndex;
-  if (report.status === ReportStatus.ASSIGNED) activeStep = 1; // Pending
-  if (report.status === ReportStatus.ADDITIONAL_DATA_REQUIRED) activeStep = 1; // treat as pending but show warning
+  // Using ReportStatusTimeline component
 
   return (
     <div className="space-y-6 animate-fade-in pb-20">
@@ -96,9 +88,23 @@ const ReportDetail: React.FC = () => {
         {/* Banner */}
         <div className="h-32 bg-gradient-to-r from-blue-900 to-slate-900 relative">
           <div className="absolute bottom-6 left-8">
-            <h1 className="text-3xl font-bold text-white mb-1">
-              {report.patient_name || 'One time Patient'}
-            </h1>
+            <div className="flex flex-col gap-4 w-full">
+              <h1 className="text-3xl font-bold text-white mb-1">
+                {report.patient_name || 'One time Patient'}
+              </h1>
+              {/* Timeline Visualization */}
+              <div className="bg-slate-800/80 backdrop-blur rounded-lg border border-slate-700 p-2 mt-2 w-full max-w-4xl">
+                <ReportStatusTimeline
+                  currentStatus={report.status}
+                  intransitAt={report.intransit_at}
+                  pacsReceivedAt={report.pacs_received_at}
+                  assignedAt={report.assigned_at}
+                  viewedAt={report.viewed_at}
+                  completedAt={report.completed_at}
+                  radiologistName={report.radiologist_name}
+                />
+              </div>
+            </div>
             <p className="text-blue-200 text-sm font-mono">ID: {report.study_instance_uid}</p>
           </div>
           {/* Status Badge */}
@@ -120,47 +126,7 @@ const ReportDetail: React.FC = () => {
         </div>
 
         <div className="p-8">
-          {/* Timeline */}
-          <div className="mb-12">
-            <h3 className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-6">
-              Workflow Status
-            </h3>
-            <div className="relative flex justify-between">
-              {/* Progress Bar Background */}
-              <div className="absolute top-1/2 left-0 right-0 h-1 bg-slate-700 -translate-y-1/2 z-0" />
-              {/* Progress Bar Active */}
-              <div
-                className="absolute top-1/2 left-0 h-1 bg-blue-500 -translate-y-1/2 z-0 transition-all duration-1000"
-                style={{ width: `${(activeStep / (steps.length - 1)) * 100}%` }}
-              />
-
-              {steps.map((step, idx) => {
-                const isCompleted = idx <= activeStep;
-                const isCurrent = idx === activeStep;
-
-                return (
-                  <div key={step.status} className="relative z-10 flex flex-col items-center">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center border-4 transition-all duration-500 ${
-                        isCompleted
-                          ? 'bg-blue-900 border-blue-500'
-                          : 'bg-slate-800 border-slate-600'
-                      } ${isCurrent ? 'ring-4 ring-blue-500/20 scale-110' : ''}`}
-                    >
-                      {isCompleted && <div className="w-2.5 h-2.5 bg-blue-400 rounded-full" />}
-                    </div>
-                    <span
-                      className={`mt-3 text-xs font-bold uppercase tracking-wide ${
-                        isCompleted ? 'text-blue-400' : 'text-slate-600'
-                      }`}
-                    >
-                      {step.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          {/* Timeline removed in favor of ReportStatusTimeline in banner */}
 
           {/* Details Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

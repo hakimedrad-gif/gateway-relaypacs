@@ -15,6 +15,7 @@ class ReportStatus(str, Enum):
     READY = "ready"  # Report completed and ready
     ADDITIONAL_DATA_REQUIRED = "additional_data_required"  # More info needed
     IN_TRANSIT = "in_transit"  # Study uploaded, transferring to PACS/Radiologist
+    IN_PROGRESS = "in_progress"  # Radiologist viewing/dictating
 
 
 class Report(BaseModel):
@@ -30,6 +31,11 @@ class Report(BaseModel):
     user_id: str  # User who uploaded the study
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    intransit_at: datetime | None = None
+    pacs_received_at: datetime | None = None
+    assigned_at: datetime | None = None
+    viewed_at: datetime | None = None
+    completed_at: datetime | None = None
 
     class Config:
         """Pydantic config."""

@@ -268,11 +268,12 @@ export const totpApi = {
 
 // Report types
 export const ReportStatus = {
-  ASSIGNED: 'assigned',
+  IN_TRANSIT: 'in_transit',
   PENDING: 'pending',
+  ASSIGNED: 'assigned',
+  IN_PROGRESS: 'in_progress',
   READY: 'ready',
   ADDITIONAL_DATA_REQUIRED: 'additional_data_required',
-  IN_TRANSIT: 'in_transit',
 } as const;
 export type ReportStatus = (typeof ReportStatus)[keyof typeof ReportStatus];
 
@@ -288,6 +289,17 @@ export interface Report {
   user_id: string;
   created_at: string;
   updated_at: string;
+  intransit_at?: string;
+  pacs_received_at?: string;
+  assigned_at?: string;
+  viewed_at?: string;
+  completed_at?: string;
+}
+
+export interface ReportStatusUpdate {
+  status: ReportStatus;
+  radiologist_id?: string;
+  radiologist_name?: string;
 }
 
 export interface ReportListResponse {
@@ -338,6 +350,11 @@ export const reportApi = {
 
   getReport: async (reportId: string): Promise<Report> => {
     const response = await api.get(`/reports/${reportId}`);
+    return response.data;
+  },
+
+  updateReportStatus: async (uploadId: string, data: ReportStatusUpdate): Promise<Report> => {
+    const response = await api.put<Report>(`/reports/upload/${uploadId}/status`, data);
     return response.data;
   },
 

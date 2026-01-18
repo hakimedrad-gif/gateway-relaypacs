@@ -1,5 +1,6 @@
 import hashlib
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -364,33 +365,43 @@ async def complete_upload(  # noqa: PLR0912, PLR0915
                 except Exception:
                     pass
 
-            # Create report record
-            report = Report(
-                upload_id=upload_id,
-                study_instance_uid=study_uid,
-                status=ReportStatus.IN_TRANSIT,
-                user_id=user_id,
-            )
-            reports_db.create_report(report)
+            # Create report record if it doesn't exist (avoid duplicates)
+            existing_report = reports_db.get_report_by_upload_id(upload_id)
+            if not existing_report:
+                report = Report(
+                    upload_id=str(upload_id),
+                    study_instance_uid=study_uid,
+                    status=ReportStatus.IN_TRANSIT,  # Use existing enum value
+                    patient_name=session.metadata.patient_name if session.metadata else None,
+                    user_id=user_id,
+                    intransit_at=datetime.utcnow(),
+                )
+                try:
+                    reports_db.create_report(report)
+                except Exception as e:
+                    print(f"Failed to create report: {e}")
 
             # Send success notification
+            # Re-using existing vars context
             msg = f"Study '{session.metadata.patient_name}' uploaded successfully"
             if pacs_receipt_id:
                 msg += " and sent to PACS"
             else:
                 msg += " (PACS forwarding pending/failed)"
 
-            await notification_service.create_and_broadcast(
-                user_id=user_id,
-                notification_type=NotificationType.UPLOAD_COMPLETE,
-                title="Upload Complete",
-                message=msg,
-                upload_id=upload_id,
-                report_id=report.id,
-            )
+                await notification_service.create_and_broadcast(
+                    user_id=user_id,
+                    notification_type=NotificationType.UPLOAD_COMPLETE,
+                    title="Upload Complete",
+                    message=msg,
+                    upload_id=upload_id,
+                    report_id=report.id,
+                )
+
         except Exception as e:
             # Log error but don't fail the upload
             warnings.append(f"Notification/Report creation failed: {e!s}")
+            logger.error(f"Failed to create report: {e}", exc_info=True)
 
     elif status == "failed":
         # Send failure notification
@@ -429,11 +440,13 @@ async def get_upload_stats(
     period: str | None = None, user: dict[str, Any] = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Get aggregated upload statistics (cached for 60s)"""
+    from typing import cast
+
     from app.cache import cache_service
 
     cache_key = f"stats:{period or 'all'}"
     if cached_data := await cache_service.get(cache_key):
-        return cached_data
+        return cast(dict[str, Any], cached_data)
 
     stats = stats_manager.get_stats(period or "all")
 

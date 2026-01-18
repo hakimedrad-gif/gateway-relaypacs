@@ -81,6 +81,23 @@ class ReportsDatabase:
             "CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at)"
         )
 
+        # Schema Migration for new timestamp fields
+        # This allows existing databases to be upgraded without data loss
+        migration_columns = [
+            "intransit_at",
+            "pacs_received_at",
+            "assigned_at",
+            "viewed_at",
+            "completed_at",
+        ]
+        for col in migration_columns:
+            try:
+                # SQLite ALTER TABLE to add column if missing
+                cursor.execute(f"ALTER TABLE reports ADD COLUMN {col} TEXT")
+            except sqlite3.OperationalError:
+                # Column likely already exists, ignore
+                pass
+
         conn.commit()
         conn.close()
 
@@ -95,8 +112,9 @@ class ReportsDatabase:
             """
             INSERT INTO reports
             (id, upload_id, study_instance_uid, status, radiologist_name,
-             report_text, report_url, user_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             report_text, report_url, user_id, created_at, updated_at,
+             intransit_at, pacs_received_at, assigned_at, viewed_at, completed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 str(report.id),
@@ -109,6 +127,11 @@ class ReportsDatabase:
                 report.user_id,
                 report.created_at.isoformat(),
                 report.updated_at.isoformat(),
+                report.intransit_at.isoformat() if report.intransit_at else None,
+                report.pacs_received_at.isoformat() if report.pacs_received_at else None,
+                report.assigned_at.isoformat() if report.assigned_at else None,
+                report.viewed_at.isoformat() if report.viewed_at else None,
+                report.completed_at.isoformat() if report.completed_at else None,
             ),
         )
 
@@ -186,6 +209,11 @@ class ReportsDatabase:
         report_url: str | None = None,
         radiologist_name: str | None = None,
         report_text: str | None = None,
+        intransit_at: datetime | None = None,
+        pacs_received_at: datetime | None = None,
+        assigned_at: datetime | None = None,
+        viewed_at: datetime | None = None,
+        completed_at: datetime | None = None,
     ) -> Report | None:
         """Update report status and optional fields."""
         conn = self._get_connection()
@@ -205,6 +233,26 @@ class ReportsDatabase:
         if report_text is not None:
             update_fields.append("report_text = ?")
             params.append(report_text)
+
+        if intransit_at is not None:
+            update_fields.append("intransit_at = ?")
+            params.append(intransit_at.isoformat())
+
+        if pacs_received_at is not None:
+            update_fields.append("pacs_received_at = ?")
+            params.append(pacs_received_at.isoformat())
+
+        if assigned_at is not None:
+            update_fields.append("assigned_at = ?")
+            params.append(assigned_at.isoformat())
+
+        if viewed_at is not None:
+            update_fields.append("viewed_at = ?")
+            params.append(viewed_at.isoformat())
+
+        if completed_at is not None:
+            update_fields.append("completed_at = ?")
+            params.append(completed_at.isoformat())
 
         params.append(str(report_id))
 
@@ -228,6 +276,17 @@ class ReportsDatabase:
             user_id=row["user_id"],
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
+            intransit_at=(
+                datetime.fromisoformat(row["intransit_at"]) if row["intransit_at"] else None
+            ),
+            pacs_received_at=(
+                datetime.fromisoformat(row["pacs_received_at"]) if row["pacs_received_at"] else None
+            ),
+            assigned_at=datetime.fromisoformat(row["assigned_at"]) if row["assigned_at"] else None,
+            viewed_at=datetime.fromisoformat(row["viewed_at"]) if row["viewed_at"] else None,
+            completed_at=(
+                datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None
+            ),
         )
 
     # Notification methods
