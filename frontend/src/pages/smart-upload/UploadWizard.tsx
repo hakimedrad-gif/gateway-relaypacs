@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as dicomParser from 'dicom-parser';
+import JSZip from 'jszip';
 
 import { Upload, FolderUp, FileText, Check, Clock, AlertCircle, Camera } from 'lucide-react';
 import { useStudy } from '../../hooks/useStudy';
@@ -234,6 +235,22 @@ export const SmartUploadWizard = () => {
   // Calculate progress efficiently
   const progress = study?.progress || 0;
 
+  // Form Validation - All fields are required
+  const isFormValid = React.useMemo(() => {
+    return (
+      files.length > 0 &&
+      metadata.patient_name?.trim() &&
+      metadata.study_date?.trim() &&
+      metadata.modality?.trim() &&
+      metadata.age?.trim() &&
+      metadata.gender &&
+      metadata.gender !== 'O' && // Must select actual gender
+      metadata.service_level?.trim() &&
+      metadata.study_description?.trim() &&
+      metadata.clinical_history?.trim()
+    );
+  }, [metadata, files]);
+
   // Load templates on mount (useState initializer would be better, but this is acceptable)
   useEffect(() => {
     const saved = localStorage.getItem('uploadTemplates');
@@ -315,16 +332,76 @@ export const SmartUploadWizard = () => {
     }
   };
 
+  // Helper to check if file is likely DICOM based on extension
+  const isDicomFile = (filename: string): boolean => {
+    const dicomExtensions = ['.dcm', '.dicom', '.dic', '.ima', '.img'];
+    const lowerName = filename.toLowerCase();
+    return dicomExtensions.some((ext) => lowerName.endsWith(ext)) || !filename.includes('.');
+  };
+
+  // Extract metadata from ZIP archive
+  const extractFromZip = async (file: File) => {
+    try {
+      console.log('📦 Extracting DICOM from ZIP:', file.name);
+      const zip = await JSZip.loadAsync(file);
+
+      // Find first DICOM file in ZIP
+      for (const [filename, zipEntry] of Object.entries(zip.files)) {
+        if (!zipEntry.dir && isDicomFile(filename)) {
+          console.log('🔍 Found DICOM in ZIP:', filename);
+          const content = await zipEntry.async('uint8array');
+          const blob = new Blob([content], { type: 'application/dicom' });
+          const dicomFile = new File([blob], filename);
+          return await parseDicomFile(dicomFile);
+        }
+      }
+      console.warn('⚠️ No DICOM files found in ZIP');
+      return null;
+    } catch (e) {
+      console.error('❌ Failed to extract from ZIP', file.name, e);
+      return null;
+    }
+  };
+
+  // Main extraction dispatcher
+  const extractMetadataFromFile = async (file: File) => {
+    // Check if it's a ZIP file
+    if (file.name.toLowerCase().endsWith('.zip') || file.type === 'application/zip') {
+      return await extractFromZip(file);
+    }
+
+    // Check if it's a RAR file (prompt user to convert to ZIP)
+    if (file.name.toLowerCase().endsWith('.rar') || file.type === 'application/x-rar-compressed') {
+      alert(
+        'RAR files detected. Please convert to ZIP format for automatic extraction.\n\nAlternatively, extract the DICOM files manually and upload them directly.',
+      );
+      return null;
+    }
+
+    // Check if it's a DICOM file (various extensions)
+    if (isDicomFile(file.name) || file.type === 'application/dicom') {
+      return await parseDicomFile(file);
+    }
+
+    // JPEG/PNG - no extraction
+    if (file.type.startsWith('image/')) {
+      console.log('📷 Image file detected (no DICOM extraction):', file.name);
+      return null;
+    }
+
+    return null;
+  };
+
   const handleFilesSelected = async (selectedFiles: File[]) => {
     setFiles(selectedFiles);
     if (selectedFiles.length > 0) {
-      // Try to extract metadata from first DICOM file
-      const firstDicom = selectedFiles.find(
-        (f) => f.name.toLowerCase().endsWith('.dcm') || f.type === 'application/dicom',
-      );
-      if (firstDicom) {
-        const dcmData = await parseDicomFile(firstDicom);
+      // Try to extract metadata from first DICOM-containing file
+      console.log('📁 Processing', selectedFiles.length, 'file(s)...');
+
+      for (const file of selectedFiles) {
+        const dcmData = await extractMetadataFromFile(file);
         if (dcmData) {
+          console.log('✅ Metadata extracted from:', file.name);
           setMetadata((prev) => ({
             ...prev,
             patient_name: dcmData.PatientName || prev.patient_name,
@@ -333,8 +410,10 @@ export const SmartUploadWizard = () => {
             gender: dcmData.PatientSex || prev.gender,
             age: dcmData.PatientAge || prev.age,
           }));
+          break; // Stop after first successful extraction
         }
       }
+
       setStep('metadata');
     }
   };
@@ -582,11 +661,22 @@ export const SmartUploadWizard = () => {
                     </select>
                   </div>
                   <textarea
-                    placeholder="Clinical History / Clinical Impression (Required)"
+                    placeholder="Study Description *"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none h-20 resize-none mb-4"
+                    value={metadata.study_description || ''}
+                    onChange={(e) =>
+                      setMetadata({ ...metadata, study_description: e.target.value })
+                    }
+                    data-testid="study-description-input"
+                    required
+                  />
+                  <textarea
+                    placeholder="Clinical History / Clinical Impression *"
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-blue-500 outline-none h-24 resize-none"
                     value={metadata.clinical_history || ''}
                     onChange={(e) => setMetadata({ ...metadata, clinical_history: e.target.value })}
                     data-testid="clinical-history-input"
+                    required
                   />
                 </div>
               </div>
@@ -600,20 +690,22 @@ export const SmartUploadWizard = () => {
                 </button>
                 <button
                   onClick={handleUpload}
-                  disabled={
-                    !metadata.patient_name ||
-                    !metadata.study_date ||
-                    !metadata.age ||
-                    !metadata.gender ||
-                    !metadata.modality ||
-                    !metadata.service_level ||
-                    !metadata.clinical_history
-                  }
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-blue-900/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105"
-                  data-testid="start-upload-btn"
+                  disabled={!isFormValid}
+                  className={`px-8 py-4 rounded-lg font-bold text-lg transition-all duration-300 flex items-center gap-3 ${
+                    isFormValid
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white shadow-lg shadow-blue-500/50 transform hover:scale-105'
+                      : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'
+                  }`}
+                  data-testid="confirm-upload-button"
                 >
-                  Start Upload
+                  <Upload size={20} />
+                  {isFormValid ? 'Start Upload' : 'Complete All Required Fields'}
                 </button>
+                {!isFormValid && (
+                  <p className="text-xs text-red-400 mt-2">
+                    * All fields marked with asterisk are required
+                  </p>
+                )}
               </div>
             </div>
           )}
