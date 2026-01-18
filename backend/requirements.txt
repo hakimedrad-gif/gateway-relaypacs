@@ -10,10 +10,9 @@ pydantic-settings==2.12.0
 python-dotenv==1.2.1
 slowapi==0.1.9
 email-validator==2.3.0
-asyncpg
-pyotp
-qrcode
-redis
+pyotp==2.9.0
+qrcode==8.2
+redis==7.1.0
 tenacity==8.2.3  # For retry logic with exponential backoff
 
 # Database
@@ -50,6 +49,3 @@ sentry-sdk[fastapi]==2.25.1
 # Monitoring/Metrics
 prometheus-fastapi-instrumentator==7.0.0
 apscheduler==3.10.4
-prometheus-fastapi-instrumentator==7.0.0
-reportlab==4.2.5
-sse-starlette==2.2.1
