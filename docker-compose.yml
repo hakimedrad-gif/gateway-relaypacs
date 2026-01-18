@@ -211,9 +211,9 @@ services:
   # Lightweight dcm4che toolkit server (Ubuntu 24.04 based)
   dcm4che_toolkit:
     image: geteway-dcm4che_toolkit:latest
-    # build:
-    #   context: ./backend
-    #   dockerfile: dcm4che.Dockerfile
+    build:
+      context: ./backend
+      dockerfile: dcm4che.Dockerfile
     ports:
       - "11114:11112"
     volumes:

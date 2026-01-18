@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
+import { useStudy } from '../hooks/useStudy';
 import { uploadManager } from '../services/uploadManager';
 
 export const MetadataConfirmation: React.FC = () => {
   const { studyId } = useParams<{ studyId: string }>();
   const navigate = useNavigate();
 
-  const study = useLiveQuery(() => db.studies.get(Number(studyId)), [studyId]);
+  const study = useStudy(studyId ? Number(studyId) : null);
 
   const [formData, setFormData] = useState({
     patientName: '',
@@ -25,7 +25,9 @@ export const MetadataConfirmation: React.FC = () => {
   // Load initial data - only once when study is first available
   const initialLoadDone = React.useRef(false);
   React.useEffect(() => {
-    if (study && !initialLoadDone.current) {
+    // Only load if study is available AND fully decrypted (implied by useStudy returning defined)
+    // We also check if the study ID matches to be safe against race conditions
+    if (study && study.id === Number(studyId) && !initialLoadDone.current) {
       setFormData({
         patientName: (study.metadata.patientName || '').replace(/\^/g, ' ').trim(),
         studyDate: study.metadata.studyDate || '',
@@ -37,7 +39,7 @@ export const MetadataConfirmation: React.FC = () => {
       });
       initialLoadDone.current = true;
     }
-  }, [study]);
+  }, [study, studyId]);
 
   // AC-20: Immediate Persistence for clinical notes
   React.useEffect(() => {
