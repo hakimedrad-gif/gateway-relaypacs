@@ -97,44 +97,35 @@ export class RelayPACSDB extends Dexie {
     // Note: encryptionService is imported dynamically to avoid circular deps if needed,
     // but here we rely on the service being singleton.
 
-    this.studies.hook('creating', async (primKey, obj) => {
-      // Import dynamically to avoid top-level side effects if possible or just use import
-      const { encryptionService } = await import('../services/encryption');
+    // TEMPORARY: Disabled encryption hooks to debug DataCloneError
+    // this.studies.hook('creating', async (primKey, obj) => {
+    //   const { encryptionService } = await import('../services/encryption');
+    //   const encryptedMeta = { ...obj.metadata };
+    //   if (encryptedMeta.patientName) {
+    //     encryptedMeta.patientName = await encryptionService.encrypt(encryptedMeta.patientName);
+    //   }
+    //   if (encryptedMeta.clinicalHistory) {
+    //     encryptedMeta.clinicalHistory = await encryptionService.encrypt(
+    //       encryptedMeta.clinicalHistory,
+    //     );
+    //   }
+    //   return { ...obj, metadata: encryptedMeta };
+    // });
 
-      const encryptedMeta = { ...obj.metadata };
-      if (encryptedMeta.patientName) {
-        encryptedMeta.patientName = await encryptionService.encrypt(encryptedMeta.patientName);
-      }
-      if (encryptedMeta.clinicalHistory) {
-        encryptedMeta.clinicalHistory = await encryptionService.encrypt(
-          encryptedMeta.clinicalHistory,
-        );
-      }
-
-      return { ...obj, metadata: encryptedMeta };
-    });
-
-    this.studies.hook('updating', async (mods, primKey, obj, trans) => {
-      const { encryptionService } = await import('../services/encryption');
-
-      // mods contains the changes. If metadata is being updated, we must encrypt the new values.
-      if (Object.keys(mods).some((k) => k.startsWith('metadata'))) {
-        // This is tricky because mods can be nested paths or distinct objects.
-        // Dexie 'updating' hook provides specific modifications.
-        // For simplicity, if we are updating the whole metadata object:
-        if ('metadata' in mods) {
-          const newMeta = { ...(mods as any).metadata };
-          if (newMeta.patientName)
-            newMeta.patientName = await encryptionService.encrypt(newMeta.patientName);
-          if (newMeta.clinicalHistory)
-            newMeta.clinicalHistory = await encryptionService.encrypt(newMeta.clinicalHistory);
-          return { ...mods, metadata: newMeta };
-        }
-        // If updating sub-properties like 'metadata.patientName' (Dexie supports dot notation updates?)
-        // We'd handle that, but typically we update the whole object or `metadata` prop.
-      }
-      return undefined; // No change
-    });
+    // this.studies.hook('updating', async (mods, primKey, obj, trans) => {
+    //   const { encryptionService } = await import('../services/encryption');
+    //   if (Object.keys(mods).some((k) => k.startsWith('metadata'))) {
+    //     if ('metadata' in mods) {
+    //       const newMeta = { ...(mods as any).metadata };
+    //       if (newMeta.patientName)
+    //         newMeta.patientName = await encryptionService.encrypt(newMeta.patientName);
+    //       if (newMeta.clinicalHistory)
+    //         newMeta.clinicalHistory = await encryptionService.encrypt(newMeta.clinicalHistory);
+    //       return { ...mods, metadata: newMeta };
+    //     }
+    //   }
+    //   return undefined;
+    // });
   }
 }
 
