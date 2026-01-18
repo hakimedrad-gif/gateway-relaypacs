@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import type { Notification } from '../../services/api';
+import type { Notification } from '../../types';
 
 interface ToastNotification extends Notification {
   show: boolean;

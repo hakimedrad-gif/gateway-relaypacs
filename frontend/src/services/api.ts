@@ -1,4 +1,23 @@
 import axios from 'axios';
+import type {
+  APIStudyMetadata as StudyMetadata,
+  UploadInitResponse,
+  ChunkUploadResponse,
+  UploadStatusResponse,
+  UploadStats,
+  TrendDataResponse,
+  RefreshTokenResponse,
+} from '../types/upload';
+import type {
+  Report,
+  ReportStatusUpdate,
+  ReportListResponse,
+} from '../types/reports';
+import type {
+  Notification,
+  NotificationListResponse,
+} from '../types/notifications';
+import type { LoginResponse, TOTPSetupResponse, TOTPResponse } from '../types/auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8003';
 
@@ -93,64 +112,19 @@ function getEndpointName(url: string): string {
   return endpoint;
 }
 
-// Types corresponding to backend models
-export interface StudyMetadata {
-  patient_name?: string;
-  study_date?: string;
-  modality?: string;
-  age?: string;
-  gender?: string;
-  service_level?: string;
-  study_description?: string;
-  clinical_history?: string;
-}
+// Re-export type constants for convenience
+export { ReportStatus } from '../types/reports';
+export { NotificationType } from '../types/notifications';
 
-export interface UploadInitResponse {
-  upload_id: string;
-  upload_token: string;
-  chunk_size: number;
-  expires_at: string;
-}
-
-export interface ChunkUploadResponse {
-  upload_id: string;
-  file_id: string;
-  chunk_index: number;
-  received_bytes: number;
-}
-
-export interface UploadStatusResponse {
-  upload_id: string;
-  progress_percent: number;
-  uploaded_bytes: number;
-  total_bytes: number;
-  state: string;
-  chunks_received: number;
-  chunks_total: number;
-  pacs_status: string;
-  files: Record<
-    string,
-    {
-      received_chunks: number[];
-      complete: boolean;
-    }
-  >;
-}
-
-export interface UploadStats {
-  modality: Record<string, number>;
-  service_level: Record<string, number>;
-  total_uploads: number;
-  failed_uploads: number;
-  last_updated: string | null;
-}
+// Re-export types
+export type { StudyMetadata, Report, Notification };
 
 export const uploadApi = {
   login: async (
     username: string,
     password: string,
     totpCode?: string,
-  ): Promise<{ access_token: string; refresh_token?: string }> => {
+  ): Promise<LoginResponse> => {
     const response = await api.post('/auth/login', { username, password, totp_code: totpCode });
     return response.data;
   },
@@ -217,7 +191,7 @@ export const uploadApi = {
     return response.data;
   },
 
-  refreshUploadToken: async (uploadId: string): Promise<{ upload_token: string }> => {
+  refreshUploadToken: async (uploadId: string): Promise<RefreshTokenResponse> => {
     const response = await api.post('/auth/refresh-upload-token', null, {
       params: { upload_id: uploadId },
     });
@@ -231,11 +205,7 @@ export const uploadApi = {
 
   getTrendData: async (
     period: string = '7d',
-  ): Promise<{
-    period: string;
-    data: Array<{ date: string; count: number }>;
-    summary: UploadStats;
-  }> => {
+  ): Promise<TrendDataResponse> => {
     const response = await api.get('/upload/stats/trend', { params: { period } });
     return response.data;
   },
@@ -250,90 +220,23 @@ export const uploadApi = {
 };
 
 export const totpApi = {
-  setup: async (): Promise<{ secret: string; qr_code: string; provisioning_uri: string }> => {
+  setup: async (): Promise<TOTPSetupResponse> => {
     const response = await api.post('/api/v1/auth/2fa/setup');
     return response.data;
   },
 
-  enable: async (code: string, secret: string): Promise<{ success: boolean; enabled: boolean }> => {
+  enable: async (code: string, secret: string): Promise<TOTPResponse> => {
     const response = await api.post('/api/v1/auth/2fa/enable', { code, secret });
     return response.data;
   },
 
-  disable: async (): Promise<{ success: boolean; enabled: boolean }> => {
+  disable: async (): Promise<TOTPResponse> => {
     const response = await api.post('/api/v1/auth/2fa/disable');
     return response.data;
   },
 };
 
-// Report types
-export const ReportStatus = {
-  IN_TRANSIT: 'in_transit',
-  PENDING: 'pending',
-  ASSIGNED: 'assigned',
-  IN_PROGRESS: 'in_progress',
-  READY: 'ready',
-  ADDITIONAL_DATA_REQUIRED: 'additional_data_required',
-} as const;
-export type ReportStatus = (typeof ReportStatus)[keyof typeof ReportStatus];
 
-export interface Report {
-  id: string;
-  upload_id: string;
-  patient_name?: string;
-  study_instance_uid: string;
-  status: ReportStatus;
-  radiologist_name?: string;
-  report_text?: string;
-  report_url?: string;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-  intransit_at?: string;
-  pacs_received_at?: string;
-  assigned_at?: string;
-  viewed_at?: string;
-  completed_at?: string;
-}
-
-export interface ReportStatusUpdate {
-  status: ReportStatus;
-  radiologist_id?: string;
-  radiologist_name?: string;
-}
-
-export interface ReportListResponse {
-  reports: Report[];
-  total: number;
-}
-
-// Notification types
-export const NotificationType = {
-  UPLOAD_COMPLETE: 'upload_complete',
-  UPLOAD_FAILED: 'upload_failed',
-  REPORT_ASSIGNED: 'report_assigned',
-  REPORT_READY: 'report_ready',
-  ADDITIONAL_DATA_REQUIRED: 'additional_data_required',
-} as const;
-export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
-
-export interface Notification {
-  id: string;
-  user_id: string;
-  notification_type: NotificationType;
-  title: string;
-  message: string;
-  related_upload_id?: string;
-  related_report_id?: string;
-  is_read: boolean;
-  created_at: string;
-}
-
-export interface NotificationListResponse {
-  notifications: Notification[];
-  unread_count: number;
-  total: number;
-}
 
 // Reports API
 export const reportApi = {

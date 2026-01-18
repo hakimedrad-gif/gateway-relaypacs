@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { ReportStatus, type Report } from '../../services/api';
+import { ReportStatus, type Report } from '../../types';
 
 interface ReportCardProps {
   report: Report;

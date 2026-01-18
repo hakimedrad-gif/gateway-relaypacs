@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { type Report, ReportStatus } from '../../services/api';
+import { ReportStatus } from '../../types';
 import ReportCard from './ReportCard';
 import { useNavigate } from 'react-router-dom';
 import { useReports } from '../../hooks/useReports';
@@ -25,7 +25,7 @@ interface ListChildComponentProps {
 const ReportList: React.FC = () => {
   const [filter, setFilter] = useState<string>('all');
   const statusFilter = filter === 'all' ? undefined : filter;
-  const { reports, loading, downloadReport, syncReport, refresh } = useReports(statusFilter);
+  const { reports, loading, downloadReport } = useReports(statusFilter);
   const navigate = useNavigate();
 
   const handleView = (reportId: string) => {
